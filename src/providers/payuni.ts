@@ -25,7 +25,7 @@ export class PayuniProvider implements ProviderAdapter {
     const queryString = params.toString();
 
     const encryptInfo = encrypt(queryString, payload.HashKey, payload.HashIV);
-    const hashInfo = generateHashInfo(encryptInfo);
+    const hashInfo = generateHashInfo(encryptInfo, payload.HashKey, payload.HashIV);
 
     const response = await fetch(getQueryEndpoint(payload.Sandbox), {
       method: "POST",
@@ -46,15 +46,22 @@ export class PayuniProvider implements ProviderAdapter {
     }
 
     const result = (await response.json()) as PayuniQueryResponse;
+    if (process.env.PAID_DEBUG === "1") {
+      console.error("[payuni] status:", response.status);
+      console.error("[payuni] response:", JSON.stringify(result));
+      if (result.EncryptInfo) {
+        console.error("[payuni] encrypt_info_length:", result.EncryptInfo.length);
+      }
+    }
 
     const errorCode = result.Status && result.Status !== "SUCCESS" ? result.Status : undefined;
     const errorMessage =
       errorCode ? `${errorCode}: ${PAYUNI_QUERY_ERRORS[errorCode] ?? "未知錯誤"}` : undefined;
 
     const decrypted = result.EncryptInfo
-      ? decrypt(result.EncryptInfo, payload.HashKey, payload.HashIV)
+      ? tryDecrypt(result.EncryptInfo, payload.HashKey, payload.HashIV)
       : undefined;
-    const parsed = decrypted ? parseDecryptedPayload(decrypted) : undefined;
+    const parsed = decrypted?.value ? parseDecryptedPayload(decrypted.value) : undefined;
     const normalized = parsed ? normalizeQueryResult(parsed) : undefined;
 
     return {
@@ -109,25 +116,42 @@ function getQueryEndpoint(isTest?: boolean): string {
 }
 
 function encrypt(data: string, hashKey: string, hashIv: string): string {
-  const key = Buffer.from(hashKey.padEnd(32, "\0").slice(0, 32), "utf8");
-  const iv = Buffer.from(hashIv.padEnd(16, "\0").slice(0, 16), "utf8");
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-  let encrypted = cipher.update(data, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return encrypted;
+  const key = Buffer.from(hashKey.trim(), "utf8");
+  const iv = Buffer.from(hashIv.trim(), "utf8");
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(data, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  const encryptedBase64 = encrypted.toString("base64");
+  const tagBase64 = tag.toString("base64");
+  const combined = `${encryptedBase64}:::${tagBase64}`;
+  return Buffer.from(combined, "utf8").toString("hex");
 }
 
-function generateHashInfo(encryptInfo: string): string {
-  return crypto.createHash("sha256").update(encryptInfo).digest("hex").toUpperCase();
+function generateHashInfo(encryptInfo: string, hashKey: string, hashIv: string): string {
+  const data = `${hashKey}${encryptInfo}${hashIv}`;
+  return crypto.createHash("sha256").update(data).digest("hex").toUpperCase();
 }
 
-function decrypt(encryptedHex: string, hashKey: string, hashIv: string): string {
-  const key = Buffer.from(hashKey.padEnd(32, "\0").slice(0, 32), "utf8");
-  const iv = Buffer.from(hashIv.padEnd(16, "\0").slice(0, 16), "utf8");
-  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-  let decrypted = decipher.update(encryptedHex, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
+function tryDecrypt(encryptedHex: string, hashKey: string, hashIv: string) {
+  try {
+    const raw = Buffer.from(encryptedHex, "hex").toString("utf8");
+    const [encryptedBase64, tagBase64] = raw.split(":::");
+    if (!encryptedBase64 || !tagBase64) {
+      return { error: "invalid_encrypted_format" };
+    }
+    const key = Buffer.from(hashKey.trim(), "utf8");
+    const iv = Buffer.from(hashIv.trim(), "utf8");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(Buffer.from(tagBase64, "base64"));
+    const encryptedData = Buffer.from(encryptedBase64, "base64");
+    const decrypted = Buffer.concat([
+      decipher.update(encryptedData),
+      decipher.final()
+    ]).toString("utf8");
+    return { value: decrypted };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "decrypt_failed" };
+  }
 }
 
 type PayuniQueryResponse = {
@@ -161,6 +185,17 @@ function parseDecryptedPayload(input: string): Record<string, unknown> {
       obj[key] = value;
     }
   }
+
+  const result0 = extractFromFlatKeys(obj);
+  if (Object.keys(result0).length) {
+    obj.Result = [result0];
+  }
+  if (process.env.PAID_DEBUG === "1") {
+    const resultKeys = Object.keys(obj).filter((key) => key.startsWith("Result"));
+    console.error("[payuni] flat_result_keys:", Object.keys(result0).length);
+    console.error("[payuni] result_keys_sample:", resultKeys.slice(0, 5));
+  }
+
   return obj;
 }
 
@@ -196,7 +231,21 @@ function extractFirstResult(parsed: Record<string, unknown>): PayuniQueryResult 
   if (result && typeof result === "object") {
     return result as PayuniQueryResult;
   }
-  return parsed as PayuniQueryResult;
+  const flat = extractFromFlatKeys(parsed);
+  return Object.keys(flat).length ? flat : (parsed as PayuniQueryResult);
+}
+
+function extractFromFlatKeys(parsed: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  const re = /^Result\[(\d+)\]\[(.+)\]$/;
+  for (const [key, value] of Object.entries(parsed)) {
+    const match = key.match(re);
+    if (!match) continue;
+    const index = Number(match[1]);
+    if (index !== 0) continue;
+    out[match[2]] = value;
+  }
+  return out;
 }
 
 function mapTradeStatus(value?: string) {
