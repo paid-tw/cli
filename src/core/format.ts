@@ -1,5 +1,6 @@
 import { PaymentResult } from "./schema.js";
 import { getBankDisplay } from "../providers/tw-banks.js";
+import stringWidth from "string-width";
 
 export type OutputFormat = "json" | "pretty";
 
@@ -16,7 +17,7 @@ function renderPrettyPayment(result: PaymentResult) {
   const raw = (data as { raw?: Record<string, unknown> }).raw ?? {};
 
   lines.push("交易明細");
-  lines.push(kv("Provider", result.provider));
+  lines.push(kv("Provider", formatProvider(result.provider)));
   lines.push(kv("狀態", formatStatus((data as { status?: string }).status ?? result.status)));
   lines.push(kv("商店訂單編號", (data as { merTradeNo?: string }).merTradeNo ?? "-"));
   lines.push(kv("UNi 序號", (data as { tradeNo?: string }).tradeNo ?? "-"));
@@ -35,12 +36,27 @@ function renderPrettyPayment(result: PaymentResult) {
 }
 
 function kv(label: string, value: string) {
-  return `${label.padEnd(14)}${value}`;
+  const width = stringWidth(label);
+  const pad = Math.max(2, 14 - width);
+  return `${label}${" ".repeat(pad)}${value}`;
 }
 
 function formatMoney(amount?: number) {
   if (amount === undefined) return "-";
   return `$${amount}`;
+}
+
+function formatProvider(provider: string) {
+  switch (provider) {
+    case "payuni":
+      return "PAYUNi 統一金流";
+    case "ecpay":
+      return "綠界科技 ECPay";
+    case "newebpay":
+      return "NewebPay 藍新金流";
+    default:
+      return provider;
+  }
 }
 
 function formatCard(card6: unknown, card4: unknown) {
