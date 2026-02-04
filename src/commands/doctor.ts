@@ -1,39 +1,36 @@
 import { Command } from "commander";
-import { getConfig, resolveProviderName } from "../core/config.js";
-import { ProviderName } from "../core/schema.js";
+import { getConfig } from "../core/config.js";
+import { formatDoctorPretty, runDoctor } from "../core/doctor.js";
 
 export function registerDoctorCommand(program: Command) {
   program
     .command("doctor")
     .description("檢查設定與環境變數")
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--format <format>", "輸出格式 (json/pretty)")
     .action(async (opts) => {
-      const cfg = await getConfig();
-      const provider = (await resolveProviderName(opts.provider)) as ProviderName;
-      const envPrefix = provider.toUpperCase();
+      try {
+        const cfg = await getConfig();
+        const result = await runDoctor(opts.provider, cfg);
+        const format = opts.format === "json" ? "json" : "pretty";
 
-      const missing: string[] = [];
-      if (!process.env[`${envPrefix}_MERCHANT_ID`]) missing.push(`${envPrefix}_MERCHANT_ID`);
-      if (!process.env[`${envPrefix}_HASH_KEY`]) missing.push(`${envPrefix}_HASH_KEY`);
-      if (!process.env[`${envPrefix}_HASH_IV`]) missing.push(`${envPrefix}_HASH_IV`);
-
-      const hasConfig = Boolean(cfg.providers?.[provider]);
-
-      console.log(JSON.stringify({
-        provider,
-        hasConfig,
-        env: {
-          required: [
-            `${envPrefix}_MERCHANT_ID`,
-            `${envPrefix}_HASH_KEY`,
-            `${envPrefix}_HASH_IV`
-          ],
-          missing
+        if (format === "json") {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(formatDoctorPretty(result));
         }
-      }, null, 2));
 
-      if (missing.length) {
-        throw new Error("缺少必要環境變數");
+        if (result.env.missing.length) {
+          throw new Error("缺少必要環境變數");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "doctor 失敗";
+        console.error("Doctor 失敗");
+        console.error(message);
+        console.error("建議：請指定 --provider 或設定預設 provider");
+        console.error("例如：paid doctor --provider=payuni");
+        console.error("或：paid config set --default-provider=payuni");
+        process.exitCode = 1;
       }
     });
 }
