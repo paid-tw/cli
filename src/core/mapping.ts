@@ -38,10 +38,14 @@ export function mapCreateToProvider(input: CreatePaymentInput): ProviderCreatePa
 export function mapGetToProvider(input: GetPaymentInput): ProviderGetPayload {
   switch (input.provider) {
     case "payuni":
+      if (!input.id && !input.tradeNo) {
+        throw new Error("PAYUNi 查詢需要提供 --id 或 --trade-no");
+      }
       return {
         provider: input.provider,
         payload: {
-          MerTradeNo: input.id
+          MerTradeNo: input.id,
+          TradeNo: input.tradeNo
         }
       };
     default:

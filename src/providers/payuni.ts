@@ -16,11 +16,13 @@ export class PayuniProvider implements ProviderAdapter {
 
   async getPayment(input: unknown) {
     const payload = ensureQueryPayload(input);
-    const queryString = new URLSearchParams({
+    const params = new URLSearchParams({
       MerID: payload.MerchantID,
-      MerTradeNo: payload.MerTradeNo,
       Timestamp: String(Math.floor(Date.now() / 1000))
-    }).toString();
+    });
+    if (payload.MerTradeNo) params.set("MerTradeNo", payload.MerTradeNo);
+    if (payload.TradeNo) params.set("TradeNo", payload.TradeNo);
+    const queryString = params.toString();
 
     const encryptInfo = encrypt(queryString, payload.HashKey, payload.HashIV);
     const hashInfo = generateHashInfo(encryptInfo);
@@ -43,20 +45,27 @@ export class PayuniProvider implements ProviderAdapter {
       throw new Error(`PAYUNi query failed: ${response.status} ${response.statusText}`);
     }
 
-    const result = (await response.json()) as {
-      Status?: string;
-      Message?: string;
-      [key: string]: unknown;
-    };
+    const result = (await response.json()) as PayuniQueryResponse;
 
     const errorCode = result.Status && result.Status !== "SUCCESS" ? result.Status : undefined;
     const errorMessage =
       errorCode ? `${errorCode}: ${PAYUNI_QUERY_ERRORS[errorCode] ?? "未知錯誤"}` : undefined;
 
+    const decrypted = result.EncryptInfo
+      ? decrypt(result.EncryptInfo, payload.HashKey, payload.HashIV)
+      : undefined;
+    const parsed = decrypted ? parseDecryptedPayload(decrypted) : undefined;
+    const normalized = parsed ? normalizeQueryResult(parsed) : undefined;
+
     return {
       ok: !errorCode,
       error: errorMessage,
-      raw: result
+      data: normalized,
+      raw: {
+        ...result,
+        decrypted,
+        parsed
+      }
     };
   }
 
@@ -75,7 +84,8 @@ type PayuniQueryPayload = {
   HashKey: string;
   HashIV: string;
   Sandbox?: boolean;
-  MerTradeNo: string;
+  MerTradeNo?: string;
+  TradeNo?: string;
 };
 
 function ensureQueryPayload(input: unknown): PayuniQueryPayload {
@@ -86,7 +96,9 @@ function ensureQueryPayload(input: unknown): PayuniQueryPayload {
   if (!payload.MerchantID) throw new Error("PAYUNi MerchantID missing");
   if (!payload.HashKey) throw new Error("PAYUNi HashKey missing");
   if (!payload.HashIV) throw new Error("PAYUNi HashIV missing");
-  if (!payload.MerTradeNo) throw new Error("PAYUNi MerTradeNo missing");
+  if (!payload.MerTradeNo && !payload.TradeNo) {
+    throw new Error("PAYUNi MerTradeNo/TradeNo missing");
+  }
   return payload as PayuniQueryPayload;
 }
 
@@ -107,6 +119,133 @@ function encrypt(data: string, hashKey: string, hashIv: string): string {
 
 function generateHashInfo(encryptInfo: string): string {
   return crypto.createHash("sha256").update(encryptInfo).digest("hex").toUpperCase();
+}
+
+function decrypt(encryptedHex: string, hashKey: string, hashIv: string): string {
+  const key = Buffer.from(hashKey.padEnd(32, "\0").slice(0, 32), "utf8");
+  const iv = Buffer.from(hashIv.padEnd(16, "\0").slice(0, 16), "utf8");
+  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+}
+
+type PayuniQueryResponse = {
+  Status?: string;
+  Message?: string;
+  EncryptInfo?: string;
+  HashInfo?: string;
+  Version?: string;
+  [key: string]: unknown;
+};
+
+type PayuniQueryResult = Record<string, unknown>;
+
+function parseDecryptedPayload(input: string): Record<string, unknown> {
+  const trimmed = input.trim();
+  if (!trimmed) return {};
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      return JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      // fall through to querystring parse
+    }
+  }
+
+  const params = new URLSearchParams(trimmed);
+  const obj: Record<string, unknown> = {};
+  for (const [key, value] of params.entries()) {
+    if (key === "Result") {
+      obj[key] = tryParseJson(value) ?? value;
+    } else {
+      obj[key] = value;
+    }
+  }
+  return obj;
+}
+
+function tryParseJson(input: string): unknown | undefined {
+  try {
+    return JSON.parse(input);
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeQueryResult(parsed: Record<string, unknown>) {
+  const result = extractFirstResult(parsed);
+  const tradeStatus = asString(result?.TradeStatus);
+  const paymentType = asString(result?.PaymentType);
+
+  return {
+    status: mapTradeStatus(tradeStatus),
+    method: mapPaymentType(paymentType),
+    amount: asNumber(result?.TradeAmt),
+    paidAt: asString(result?.PaymentDay),
+    tradeNo: asString(result?.TradeNo),
+    merTradeNo: asString(result?.MerTradeNo),
+    raw: result
+  };
+}
+
+function extractFirstResult(parsed: Record<string, unknown>): PayuniQueryResult | undefined {
+  const result = parsed.Result;
+  if (Array.isArray(result)) {
+    return result[0] as PayuniQueryResult | undefined;
+  }
+  if (result && typeof result === "object") {
+    return result as PayuniQueryResult;
+  }
+  return parsed as PayuniQueryResult;
+}
+
+function mapTradeStatus(value?: string) {
+  switch (value) {
+    case "1":
+      return "paid";
+    case "2":
+      return "failed";
+    case "3":
+      return "canceled";
+    case "4":
+      return "expired";
+    case "8":
+      return "pending";
+    case "9":
+      return "unpaid";
+    case "0":
+      return "initialized";
+    default:
+      return value ?? "unknown";
+  }
+}
+
+function mapPaymentType(value?: string) {
+  switch (value) {
+    case "1":
+      return "card";
+    case "2":
+      return "atm";
+    case "3":
+      return "cvs";
+    case "9":
+      return "linepay";
+    case "11":
+      return "jkopay";
+    default:
+      return value ?? "unknown";
+  }
+}
+
+function asString(input: unknown): string | undefined {
+  if (input === null || input === undefined) return undefined;
+  return String(input);
+}
+
+function asNumber(input: unknown): number | undefined {
+  if (input === null || input === undefined) return undefined;
+  const num = Number(input);
+  return Number.isNaN(num) ? undefined : num;
 }
 
 const PAYUNI_QUERY_ERRORS: Record<string, string> = {

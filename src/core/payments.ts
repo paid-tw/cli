@@ -46,10 +46,12 @@ export async function getPayment(
   };
 
   const raw = await provider.getPayment(payload);
+  const data = (raw as { data?: unknown }).data;
   return {
     provider: input.provider,
-    id: input.id,
+    id: input.id ?? input.tradeNo ?? "",
     status: "fetched",
+    data,
     raw
   };
 }

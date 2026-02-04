@@ -21,6 +21,12 @@ export function registerPaymentsCommands(program: Command) {
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
       const runtime = resolveRuntimeSandbox(opts);
+      if (!opts.id && !opts.tradeNo) {
+        throw new Error("請提供 --id 或 --trade-no");
+      }
+      if (opts.id && opts.tradeNo) {
+        throw new Error("請擇一使用 --id 或 --trade-no");
+      }
       const provider = await resolveProviderName(opts.provider);
       const result = await createPayment(
         {
@@ -42,16 +48,24 @@ export function registerPaymentsCommands(program: Command) {
     .command("get")
     .description("查詢交易")
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
-    .requiredOption("--id <id>", "交易 ID")
+    .option("--id <id>", "交易 ID（MerTradeNo）")
+    .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
       const runtime = resolveRuntimeSandbox(opts);
+      if (!opts.id && !opts.tradeNo) {
+        throw new Error("請提供 --id 或 --trade-no");
+      }
+      if (opts.id && opts.tradeNo) {
+        throw new Error("請擇一使用 --id 或 --trade-no");
+      }
       const provider = await resolveProviderName(opts.provider);
       const result = await getPayment(
         {
           provider: provider as ProviderName,
-          id: opts.id
+          id: opts.id,
+          tradeNo: opts.tradeNo
         },
         runtime
       );
@@ -62,12 +76,19 @@ export function registerPaymentsCommands(program: Command) {
     .command("refund")
     .description("退款")
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
-    .requiredOption("--id <id>", "交易 ID")
+    .option("--id <id>", "交易 ID（MerTradeNo）")
+    .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
     .option("--amount <amount>", "退款金額，預設全額")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
       const runtime = resolveRuntimeSandbox(opts);
+      if (!opts.id && !opts.tradeNo) {
+        throw new Error("請提供 --id 或 --trade-no");
+      }
+      if (opts.id && opts.tradeNo) {
+        throw new Error("請擇一使用 --id 或 --trade-no");
+      }
       const provider = await resolveProviderName(opts.provider);
       const result = await refundPayment(
         {

@@ -5,10 +5,12 @@
 ## 指令
 ```bash
 paid payments get --provider=payuni --id=ORDER-123
+paid payments get --provider=payuni --trade-no=UNI123456789
 ```
 
 ## 必要參數
 - `--id`：對應 PAYUNi 的 `MerTradeNo`
+- `--trade-no`：對應 PAYUNi 的 `TradeNo`（UNi 序號）
 
 ## 查詢行為（CLI 內部）
 - 目標 URL：
@@ -19,7 +21,7 @@ paid payments get --provider=payuni --id=ORDER-123
 - `Version` 固定為 `2.0`
 - `EncryptInfo` 內含：
   - `MerID`
-  - `MerTradeNo`
+  - `MerTradeNo` 或 `TradeNo`
   - `Timestamp`（秒級）
 - `HashInfo`：`EncryptInfo` 的 SHA256
 

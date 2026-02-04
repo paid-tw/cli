@@ -14,7 +14,8 @@ export interface CreatePaymentInput {
 
 export interface GetPaymentInput {
   provider: ProviderName;
-  id: string;
+  id?: string;
+  tradeNo?: string;
 }
 
 export interface RefundPaymentInput {
@@ -27,6 +28,17 @@ export interface PaymentResult {
   provider: ProviderName;
   id: string;
   status: string;
+  data?: NormalizedPaymentData;
+  raw?: unknown;
+}
+
+export interface NormalizedPaymentData {
+  status: string;
+  method: string;
+  amount?: number;
+  paidAt?: string;
+  tradeNo?: string;
+  merTradeNo?: string;
   raw?: unknown;
 }
 
