@@ -1,0 +1,5 @@
+[providers.payuni]
+merchantId = "MS12345678"
+hashKey = "your_hash_key"
+hashIv = "your_hash_iv"
+sandbox = true
