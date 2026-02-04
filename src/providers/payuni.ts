@@ -242,8 +242,10 @@ function extractFromFlatKeys(parsed: Record<string, unknown>) {
     const match = key.match(re);
     if (!match) continue;
     const index = Number(match[1]);
+    const field = match[2];
+    if (!field) continue;
     if (index !== 0) continue;
-    out[match[2]] = value;
+    out[field] = value;
   }
   return out;
 }

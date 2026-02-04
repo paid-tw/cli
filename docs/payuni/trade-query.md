@@ -37,6 +37,8 @@ paid payments get --provider=payuni --trade-no=UNI123456789
 - `error`：錯誤代碼與說明（若失敗）
 - `raw`：PAYUNi 原始回應
 
+PAYUNi 回傳可能包含多筆紀錄，`Result` 為陣列（由 0 開始）。CLI 目前會取第一筆作為標準化輸出，完整原始資料仍保留在 `raw`。
+
 ## 錯誤代碼（摘要）
 | 代碼 | 說明 |
 | --- | --- |

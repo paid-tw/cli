@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command } from "commander";
 import { registerTwCommands } from "./commands/auth.js";
 import { registerPaymentsCommands } from "./commands/payments.js";

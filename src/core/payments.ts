@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProvider } from "./providers.js";
 import { mapCreateToProvider, mapGetToProvider, mapRefundToProvider } from "./mapping.js";
-import { CreatePaymentInput, GetPaymentInput, PaymentResult, RefundPaymentInput, RefundResult } from "./schema.js";
+import { CreatePaymentInput, GetPaymentInput, PaymentResult, RefundPaymentInput, RefundResult, NormalizedPaymentData } from "./schema.js";
 import { resolveProviderConfig } from "./config.js";
 
 export async function createPayment(
@@ -46,7 +46,7 @@ export async function getPayment(
   };
 
   const raw = await provider.getPayment(payload);
-  const data = (raw as { data?: unknown }).data;
+  const data = (raw as { data?: NormalizedPaymentData }).data;
   return {
     provider: input.provider,
     id: input.id ?? input.tradeNo ?? "",

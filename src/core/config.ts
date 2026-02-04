@@ -29,7 +29,10 @@ const CONFIG_PATH = path.join(CONFIG_DIR, "config.toml");
 export function loadDotEnv() {
   const envPath = path.join(process.cwd(), ".env");
   if (!fsSync.existsSync(envPath)) return;
-  dotenv.config({ path: envPath, override: true });
+  const result = dotenv.config({ path: envPath, override: true });
+  if (result.parsed) {
+    process.env.__PAID_DOTENV = Object.keys(result.parsed).join(",");
+  }
 }
 
 export function getConfigPath() {
@@ -54,21 +57,21 @@ export async function setProviderConfig(provider: ProviderName, input: ProviderC
   };
   const next: PaidConfig = { ...existing, providers };
   await fs.mkdir(CONFIG_DIR, { recursive: true });
-  await fs.writeFile(CONFIG_PATH, TOML.stringify(next));
+  await fs.writeFile(CONFIG_PATH, TOML.stringify(next as TOML.JsonMap));
 }
 
 export async function setDefaultProvider(provider: ProviderName) {
   const existing = await getConfig();
   const next: PaidConfig = { ...existing, defaultProvider: provider };
   await fs.mkdir(CONFIG_DIR, { recursive: true });
-  await fs.writeFile(CONFIG_PATH, TOML.stringify(next));
+  await fs.writeFile(CONFIG_PATH, TOML.stringify(next as TOML.JsonMap));
 }
 
 export async function setOutputFormat(format: "json" | "pretty") {
   const existing = await getConfig();
   const next: PaidConfig = { ...existing, outputFormat: format };
   await fs.mkdir(CONFIG_DIR, { recursive: true });
-  await fs.writeFile(CONFIG_PATH, TOML.stringify(next));
+  await fs.writeFile(CONFIG_PATH, TOML.stringify(next as TOML.JsonMap));
 }
 
 export async function resolveProviderName(input?: string): Promise<ProviderName> {
@@ -122,8 +125,9 @@ export async function resolveProviderConfig(
   };
 }
 
-function cleanUndefined<T extends Record<string, unknown>>(input: T): T {
-  return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as T;
+function cleanUndefined<T extends object>(input: T): T {
+  const entries = Object.entries(input as Record<string, unknown>).filter(([, v]) => v !== undefined);
+  return Object.fromEntries(entries) as T;
 }
 
 const KNOWN_PROVIDERS: ProviderName[] = ["payuni", "newebpay", "ecpay"];
