@@ -64,6 +64,19 @@ paid config --help
 ## paid‑tw 加值服務（選用）
 若需要使用 paid‑tw 平台提供的額外服務（例如 OAuth 登入、後續的雲端功能），使用 `paid tw ...` 子命令。
 
+## paid‑tw OAuth（選用）
+僅在使用 paid‑tw 平台功能時需要登入。若只是把 `paid` 當作本地金流 CLI 使用，可忽略此段落。
+
+### 登入
+```bash
+paid tw auth login
+```
+
+### 查看狀態
+```bash
+paid tw auth status
+```
+
 ## 文件
 - PAYUNi 交易查詢：`cli/docs/payuni/trade-query.md`
 
