@@ -11,6 +11,10 @@ export interface ProviderConfig {
   sandbox?: boolean;
 }
 
+export interface RuntimeEnv {
+  sandbox?: boolean;
+}
+
 export interface PaidConfig {
   defaultProvider?: ProviderName;
   providers?: Record<string, ProviderConfig>;
@@ -76,7 +80,8 @@ export async function resolveProviderName(input?: string): Promise<ProviderName>
 
 export async function resolveProviderConfig(
   provider: ProviderName,
-  flags?: ProviderConfig
+  flags?: ProviderConfig,
+  runtime?: RuntimeEnv
 ): Promise<ProviderConfig> {
   const envPrefix = provider.toUpperCase();
   const env: ProviderConfig = {
@@ -89,10 +94,15 @@ export async function resolveProviderConfig(
   const fileConfig = await getConfig();
   const fileProvider = fileConfig.providers?.[provider] ?? {};
 
+  const envMode = resolvePaidEnv();
+  const runtimeSandbox =
+    runtime?.sandbox !== undefined ? runtime.sandbox : envMode !== undefined ? envMode : undefined;
+
   return {
     ...fileProvider,
     ...env,
-    ...flags
+    ...flags,
+    sandbox: runtimeSandbox ?? flags?.sandbox ?? env.sandbox ?? fileProvider.sandbox
   };
 }
 
@@ -111,4 +121,12 @@ function ensureProviderName(value: string): ProviderName {
     throw new Error(`不支援的 provider: ${value}`);
   }
   return value;
+}
+
+function resolvePaidEnv(): boolean | undefined {
+  const mode = process.env.PAID_ENV?.toLowerCase();
+  if (!mode) return undefined;
+  if (mode === "sandbox" || mode === "test") return true;
+  if (mode === "production" || mode === "prod") return false;
+  return undefined;
 }

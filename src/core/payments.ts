@@ -4,9 +4,12 @@ import { mapCreateToProvider, mapGetToProvider, mapRefundToProvider } from "./ma
 import { CreatePaymentInput, GetPaymentInput, PaymentResult, RefundPaymentInput, RefundResult } from "./schema.js";
 import { resolveProviderConfig } from "./config.js";
 
-export async function createPayment(input: CreatePaymentInput): Promise<PaymentResult> {
+export async function createPayment(
+  input: CreatePaymentInput,
+  runtime?: { sandbox?: boolean }
+): Promise<PaymentResult> {
   const provider = getProvider(input.provider);
-  const cfg = await resolveProviderConfig(input.provider);
+  const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
   const mapped = mapCreateToProvider(input);
 
   const payload = {
@@ -26,9 +29,12 @@ export async function createPayment(input: CreatePaymentInput): Promise<PaymentR
   };
 }
 
-export async function getPayment(input: GetPaymentInput): Promise<PaymentResult> {
+export async function getPayment(
+  input: GetPaymentInput,
+  runtime?: { sandbox?: boolean }
+): Promise<PaymentResult> {
   const provider = getProvider(input.provider);
-  const cfg = await resolveProviderConfig(input.provider);
+  const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
   const mapped = mapGetToProvider(input);
 
   const payload = {
@@ -48,9 +54,12 @@ export async function getPayment(input: GetPaymentInput): Promise<PaymentResult>
   };
 }
 
-export async function refundPayment(input: RefundPaymentInput): Promise<RefundResult> {
+export async function refundPayment(
+  input: RefundPaymentInput,
+  runtime?: { sandbox?: boolean }
+): Promise<RefundResult> {
   const provider = getProvider(input.provider);
-  const cfg = await resolveProviderConfig(input.provider);
+  const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
   const mapped = mapRefundToProvider(input);
 
   const payload = {

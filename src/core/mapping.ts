@@ -41,7 +41,7 @@ export function mapGetToProvider(input: GetPaymentInput): ProviderGetPayload {
       return {
         provider: input.provider,
         payload: {
-          OrderNo: input.id
+          MerTradeNo: input.id
         }
       };
     default:

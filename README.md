@@ -1,6 +1,6 @@
 # paid CLI
 
-以 Stripe CLI 的 DX 為目標，提供台灣金流的統一操作介面。
+以優質 DX 為目標，提供台灣金流的統一操作介面。
 
 ## 目標
 - 單一指令介面操作多家金流（先支援 PAYUNi）
@@ -44,6 +44,7 @@ sandbox = true
 ### 環境變數
 ```bash
 PAID_DEFAULT_PROVIDER=payuni
+PAID_ENV=sandbox
 PAYUNI_MERCHANT_ID=MS12345678
 PAYUNI_HASH_KEY=your_hash_key
 PAYUNI_HASH_IV=your_hash_iv
@@ -105,6 +106,34 @@ paid config --help
   }
 }
 ```
+
+## PAYUNi 查詢錯誤碼（摘要）
+當 `paid payments get` 回傳 `ok: false` 時，`error` 會對應以下代碼訊息：
+
+| 代碼 | 說明 |
+| --- | --- |
+| QUERY01001 | 未有商店代號 |
+| QUERY01002 | 資料 HASH 比對不符合 |
+| QUERY01003 | 資料解密失敗 |
+| QUERY01004 | 解密資料不存在 |
+| QUERY01005 | 查無符合商店資料 |
+| QUERY01006 | 網路連線異常 |
+| QUERY02001 | 未有商店代號 |
+| QUERY02002 | 商店訂單或訂單編號，請擇一送入 |
+| QUERY02003 | 商店訂單編號，超過長度限制 |
+| QUERY02004 | 商店訂單編號，格式錯誤 |
+| QUERY02005 | 訂單編號，超過長度限制 |
+| QUERY02006 | 訂單編號，格式錯誤 |
+| QUERY02007 | 未有時間戳記 |
+| QUERY02008 | 時間戳記，僅可輸入整數 |
+| QUERY02009 | 時間戳記，已過期 |
+| QUERY02010 | 未有查詢類別 |
+| QUERY02011 | 非可使用的查詢類別 |
+| QUERY02012 | 參數格式錯誤 (QueryNo) |
+| QUERY02013 | 超過單次可查詢筆數上限 |
+| QUERY03001 | 查無符合訂單資料 |
+| QUERY04001 | 未有API處理結果 |
+| QUERY04002 | 回傳加密失敗 |
 
 ## 開發
 ```bash
