@@ -17,7 +17,7 @@
 export PAYUNI_MERCHANT_ID=your_merchant_id
 export PAYUNI_HASH_KEY=your_hash_key
 export PAYUNI_HASH_IV=your_hash_iv
-# CLI 預設使用 sandbox；可改為 false 走正式環境
+# CLI 預設使用正式環境；如需測試請改為 true
 export PAYUNI_SANDBOX=true
 
 # 2) 免安裝快速檢查
