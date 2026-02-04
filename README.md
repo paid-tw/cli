@@ -33,10 +33,68 @@ hashIv = "your_hash_iv"
 sandbox = true
 ```
 
+## Help 範例
+```bash
+paid --help
+paid payments --help
+paid payments create --help
+paid auth --help
+paid config --help
+```
+
+## 範例輸出（格式）
+### 建立交易
+```json
+{
+  "provider": "payuni",
+  "id": "9f2c...a1b0",
+  "status": "created",
+  "raw": {
+    "ok": false,
+    "message": "PAYUNi createPayment 尚未實作",
+    "input": { "..." : "..." }
+  }
+}
+```
+
+### 查詢交易
+```json
+{
+  "provider": "payuni",
+  "id": "Ax234234jisdi",
+  "status": "fetched",
+  "raw": {
+    "ok": false,
+    "message": "PAYUNi getPayment 尚未實作",
+    "input": { "..." : "..." }
+  }
+}
+```
+
+### 退款
+```json
+{
+  "provider": "payuni",
+  "id": "Ax234234jisdi",
+  "status": "refunded",
+  "raw": {
+    "ok": false,
+    "message": "PAYUNi refundPayment 尚未實作",
+    "input": { "..." : "..." }
+  }
+}
+```
+
 ## 開發
 ```bash
 npm i
 npm run dev -- --help
+```
+
+## 安裝
+```bash
+npm i -g @paid-tw/cli
+paid --help
 ```
 
 ## Build
