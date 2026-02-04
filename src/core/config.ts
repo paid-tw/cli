@@ -1,8 +1,10 @@
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import * as TOML from "@iarna/toml";
 import { ProviderName } from "./schema.js";
+import dotenv from "dotenv";
 
 export interface ProviderConfig {
   merchantId?: string;
@@ -22,6 +24,12 @@ export interface PaidConfig {
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "paid");
 const CONFIG_PATH = path.join(CONFIG_DIR, "config.toml");
+
+export function loadDotEnv() {
+  const envPath = path.join(process.cwd(), ".env");
+  if (!fsSync.existsSync(envPath)) return;
+  dotenv.config({ path: envPath, override: true });
+}
 
 export function getConfigPath() {
   return CONFIG_PATH;

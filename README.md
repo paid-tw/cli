@@ -12,6 +12,7 @@
 ## 指令概覽（MVP）
 - `paid tw auth login`（選用，僅 paid‑tw 功能需要）
 - `paid tw auth status`（選用，僅 paid‑tw 功能需要）
+- `paid doctor --provider=payuni`
 - `paid providers list`
 - `paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=...`
 - `paid payments get --provider=payuni --id=...`
@@ -37,9 +38,10 @@ sandbox = true
 
 ### 預設 provider 優先序
 1. `--provider`
-2. `PAID_DEFAULT_PROVIDER`
-3. `config.toml` 的 `defaultProvider`
-4. 若只設定一個 `providers`，自動使用該 provider
+2. `.env`
+3. 系統環境變數
+4. `config.toml` 的 `defaultProvider`
+5. 若只設定一個 `providers`，自動使用該 provider
 
 ### 環境變數
 ```bash
@@ -51,6 +53,9 @@ PAYUNI_HASH_IV=your_hash_iv
 PAYUNI_SANDBOX=true
 ```
 
+### .env（選用）
+若專案根目錄存在 `.env`，`paid` 會優先讀取並覆蓋系統環境變數。
+
 ## Help 範例
 ```bash
 paid --help
@@ -59,6 +64,8 @@ paid payments --help
 paid payments create --help
 paid tw auth --help
 paid config --help
+paid doctor --help
+paid providers ping --help
 ```
 
 ## paid‑tw 加值服務（選用）
@@ -77,7 +84,16 @@ paid tw auth login
 paid tw auth status
 ```
 
+## 診斷（doctor）
+快速檢查環境變數與設定是否完整。
+
+```bash
+paid doctor --provider=payuni
+```
+
 ## 文件
+各金流的細節說明與錯誤碼請參考對應文件。
+
 - PAYUNi 交易查詢：`cli/docs/payuni/trade-query.md`
 
 ## 範例輸出（格式）
@@ -122,34 +138,6 @@ paid tw auth status
   }
 }
 ```
-
-## PAYUNi 查詢錯誤碼（摘要）
-當 `paid payments get` 回傳 `ok: false` 時，`error` 會對應以下代碼訊息：
-
-| 代碼 | 說明 |
-| --- | --- |
-| QUERY01001 | 未有商店代號 |
-| QUERY01002 | 資料 HASH 比對不符合 |
-| QUERY01003 | 資料解密失敗 |
-| QUERY01004 | 解密資料不存在 |
-| QUERY01005 | 查無符合商店資料 |
-| QUERY01006 | 網路連線異常 |
-| QUERY02001 | 未有商店代號 |
-| QUERY02002 | 商店訂單或訂單編號，請擇一送入 |
-| QUERY02003 | 商店訂單編號，超過長度限制 |
-| QUERY02004 | 商店訂單編號，格式錯誤 |
-| QUERY02005 | 訂單編號，超過長度限制 |
-| QUERY02006 | 訂單編號，格式錯誤 |
-| QUERY02007 | 未有時間戳記 |
-| QUERY02008 | 時間戳記，僅可輸入整數 |
-| QUERY02009 | 時間戳記，已過期 |
-| QUERY02010 | 未有查詢類別 |
-| QUERY02011 | 非可使用的查詢類別 |
-| QUERY02012 | 參數格式錯誤 (QueryNo) |
-| QUERY02013 | 超過單次可查詢筆數上限 |
-| QUERY03001 | 查無符合訂單資料 |
-| QUERY04001 | 未有API處理結果 |
-| QUERY04002 | 回傳加密失敗 |
 
 ## 開發
 ```bash

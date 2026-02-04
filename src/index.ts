@@ -4,6 +4,10 @@ import { registerTwCommands } from "./commands/auth.js";
 import { registerPaymentsCommands } from "./commands/payments.js";
 import { registerConfigCommands } from "./commands/config.js";
 import { registerProviderCommands } from "./commands/providers.js";
+import { loadDotEnv } from "./core/config.js";
+import { registerDoctorCommand } from "./commands/doctor.js";
+
+loadDotEnv();
 
 const program = new Command();
 
@@ -17,6 +21,7 @@ program
 registerPaymentsCommands(program);
 registerConfigCommands(program);
 registerProviderCommands(program);
+registerDoctorCommand(program);
 registerTwCommands(program);
 
 program.addHelpText(
