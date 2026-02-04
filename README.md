@@ -64,6 +64,9 @@ paid config --help
 ## paid‑tw 加值服務（選用）
 若需要使用 paid‑tw 平台提供的額外服務（例如 OAuth 登入、後續的雲端功能），使用 `paid tw ...` 子命令。
 
+## 文件
+- PAYUNi 交易查詢：`cli/docs/payuni/trade-query.md`
+
 ## 範例輸出（格式）
 ### 建立交易
 ```json

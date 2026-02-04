@@ -82,7 +82,7 @@ export function registerPaymentsCommands(program: Command) {
 
   payments.addHelpText(
     "after",
-    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n`
+    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  PAYUNi 查詢: --id 對應 MerTradeNo，會自動帶 Version=2.0、Timestamp、User-Agent=payuni\n`
   );
 }
 
