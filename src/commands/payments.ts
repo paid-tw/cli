@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import { createPayment, getPayment, refundPayment } from "../core/payments.js";
 import { PaymentMethod, ProviderName } from "../core/schema.js";
-import { resolveProviderName } from "../core/config.js";
+import { getConfig, resolveProviderName } from "../core/config.js";
+import { formatPaymentOutput, OutputFormat } from "../core/format.js";
 
 export function registerPaymentsCommands(program: Command) {
   const payments = program.command("payments").description("交易建立、查詢、退款");
@@ -50,6 +51,7 @@ export function registerPaymentsCommands(program: Command) {
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
     .option("--id <id>", "交易 ID（MerTradeNo）")
     .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
+    .option("--format <format>", "輸出格式 (json/pretty)")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
@@ -69,26 +71,20 @@ export function registerPaymentsCommands(program: Command) {
         },
         runtime
       );
-      console.log(JSON.stringify(result, null, 2));
+      const outputFormat = await resolveOutputFormat(opts.format);
+      console.log(formatPaymentOutput(result, outputFormat));
     });
 
   payments
     .command("refund")
     .description("退款")
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
-    .option("--id <id>", "交易 ID（MerTradeNo）")
-    .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
+    .requiredOption("--id <id>", "交易 ID")
     .option("--amount <amount>", "退款金額，預設全額")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
       const runtime = resolveRuntimeSandbox(opts);
-      if (!opts.id && !opts.tradeNo) {
-        throw new Error("請提供 --id 或 --trade-no");
-      }
-      if (opts.id && opts.tradeNo) {
-        throw new Error("請擇一使用 --id 或 --trade-no");
-      }
       const provider = await resolveProviderName(opts.provider);
       const result = await refundPayment(
         {
@@ -103,7 +99,7 @@ export function registerPaymentsCommands(program: Command) {
 
   payments.addHelpText(
     "after",
-    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  PAYUNi 查詢: --id 對應 MerTradeNo，會自動帶 Version=2.0、Timestamp、User-Agent=payuni\n`
+    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  PAYUNi 查詢: --id=MerTradeNo 或 --trade-no=TradeNo\n  PAYUNi 查詢: 會自動帶 Version=2.0、Timestamp、User-Agent=payuni\n  --format: json | pretty\n`
   );
 }
 
@@ -114,4 +110,13 @@ function resolveRuntimeSandbox(opts: { sandbox?: boolean; production?: boolean }
   if (opts.sandbox) return { sandbox: true };
   if (opts.production) return { sandbox: false };
   return undefined;
+}
+
+async function resolveOutputFormat(format?: string): Promise<OutputFormat> {
+  if (format === "json" || format === "pretty") return format;
+  const cfg = await getConfig();
+  if (cfg.outputFormat === "json" || cfg.outputFormat === "pretty") {
+    return cfg.outputFormat;
+  }
+  return "json";
 }

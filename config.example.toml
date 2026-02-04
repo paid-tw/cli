@@ -1,4 +1,5 @@
 defaultProvider = "payuni"
+outputFormat = "json"
 
 [providers.payuni]
 merchantId = "MS12345678"

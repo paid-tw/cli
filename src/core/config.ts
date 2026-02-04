@@ -19,6 +19,7 @@ export interface RuntimeEnv {
 
 export interface PaidConfig {
   defaultProvider?: ProviderName;
+  outputFormat?: "json" | "pretty";
   providers?: Record<string, ProviderConfig>;
 }
 
@@ -59,6 +60,13 @@ export async function setProviderConfig(provider: ProviderName, input: ProviderC
 export async function setDefaultProvider(provider: ProviderName) {
   const existing = await getConfig();
   const next: PaidConfig = { ...existing, defaultProvider: provider };
+  await fs.mkdir(CONFIG_DIR, { recursive: true });
+  await fs.writeFile(CONFIG_PATH, TOML.stringify(next));
+}
+
+export async function setOutputFormat(format: "json" | "pretty") {
+  const existing = await getConfig();
+  const next: PaidConfig = { ...existing, outputFormat: format };
   await fs.mkdir(CONFIG_DIR, { recursive: true });
   await fs.writeFile(CONFIG_PATH, TOML.stringify(next));
 }

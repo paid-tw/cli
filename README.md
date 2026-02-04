@@ -28,6 +28,7 @@
 ### config.toml 範例
 ```toml
 defaultProvider = "payuni"
+outputFormat = "json"
 
 [providers.payuni]
 merchantId = "MS12345678"
@@ -42,6 +43,9 @@ sandbox = true
 3. 系統環境變數
 4. `config.toml` 的 `defaultProvider`
 5. 若只設定一個 `providers`，自動使用該 provider
+
+### 輸出格式
+`paid payments get` 支援 `--format=json|pretty`，也可用 `config.toml` 設定 `outputFormat` 作為預設值。
 
 ### 環境變數
 ```bash
