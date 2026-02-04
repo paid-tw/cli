@@ -1,14 +1,15 @@
 {
   "name": "@paid-tw/cli",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.1",
+  "license": "MIT",
+  "private": false,
   "type": "module",
   "bin": {
     "paid": "dist/index.js"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsup src/index.ts --format esm --dts --out-dir dist --banner js=\"#!/usr/bin/env node\"",
+    "build": "rollup -c && tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -22,9 +23,16 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.1",
+    "@rollup/plugin-typescript": "^11.1.6",
     "eslint": "^9.1.1",
-    "tsup": "^8.0.2",
+    "rollup": "^4.21.2",
+    "tslib": "^2.6.3",
     "tsx": "^4.7.1",
     "typescript": "^5.4.5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
