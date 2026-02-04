@@ -9,9 +9,34 @@
 - 完整 help 便於 AI 呼叫
 - 與 paid‑tw OAuth 整合
 
+## Quickstart
+
+### PAYUNi 統一金流
+```bash
+# 1) 設定環境變數
+export PAYUNI_MERCHANT_ID=your_merchant_id
+export PAYUNI_HASH_KEY=your_hash_key
+export PAYUNI_HASH_IV=your_hash_iv
+export PAYUNI_SANDBOX=true
+
+# 2) 免安裝快速檢查
+npx @paid-tw/cli doctor --provider=payuni
+
+# 3) 查詢交易
+npx @paid-tw/cli payments get --provider=payuni --id=ORDER-123
+```
+
+### NewebPay 藍新金流（開發中）
+```bash
+# 即將推出
+```
+
+### ECPay 綠界科技（開發中）
+```bash
+# 即將推出
+```
+
 ## 指令概覽（MVP）
-- `paid tw auth login`（選用，僅 paid‑tw 功能需要）
-- `paid tw auth status`（選用，僅 paid‑tw 功能需要）
 - `paid doctor --provider=payuni`
 - `paid providers list`
 - `paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=...`
@@ -19,6 +44,12 @@
 - `paid payments refund --provider=payuni --id=... --amount=...`
 - `paid config set --provider=payuni --merchant-id=...`
 - `paid config get --provider=payuni`
+
+## paid‑tw（即將推出）
+paid‑tw 相關功能會以 `paid tw ...` 提供，包含 OAuth 登入與雲端加值服務。
+
+- `paid tw auth login`（選用，僅 paid‑tw 功能需要）
+- `paid tw auth status`（選用，僅 paid‑tw 功能需要）
 
 ## 設定優先序
 1. CLI flags
