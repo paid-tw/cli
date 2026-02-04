@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { createPayment, getPayment, refundPayment } from "../core/payments.js";
 import { PaymentMethod, ProviderName } from "../core/schema.js";
+import { resolveProviderName } from "../core/config.js";
 
 export function registerPaymentsCommands(program: Command) {
   const payments = program.command("payments").description("交易建立、查詢、退款");
@@ -8,7 +9,7 @@ export function registerPaymentsCommands(program: Command) {
   payments
     .command("create")
     .description("建立交易")
-    .requiredOption("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
     .requiredOption("--amount <amount>", "金額")
     .option("--currency <currency>", "幣別", "TWD")
     .requiredOption("--method <method>", "付款方式 (card/linepay/atm/cvs)")
@@ -17,8 +18,9 @@ export function registerPaymentsCommands(program: Command) {
     .option("--return-url <url>", "Return URL")
     .option("--notify-url <url>", "Notify URL")
     .action(async (opts) => {
+      const provider = await resolveProviderName(opts.provider);
       const result = await createPayment({
-        provider: opts.provider as ProviderName,
+        provider: provider as ProviderName,
         amount: Number(opts.amount),
         currency: opts.currency,
         method: opts.method as PaymentMethod,
@@ -33,11 +35,12 @@ export function registerPaymentsCommands(program: Command) {
   payments
     .command("get")
     .description("查詢交易")
-    .requiredOption("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
     .requiredOption("--id <id>", "交易 ID")
     .action(async (opts) => {
+      const provider = await resolveProviderName(opts.provider);
       const result = await getPayment({
-        provider: opts.provider as ProviderName,
+        provider: provider as ProviderName,
         id: opts.id
       });
       console.log(JSON.stringify(result, null, 2));
@@ -46,15 +49,21 @@ export function registerPaymentsCommands(program: Command) {
   payments
     .command("refund")
     .description("退款")
-    .requiredOption("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
     .requiredOption("--id <id>", "交易 ID")
     .option("--amount <amount>", "退款金額，預設全額")
     .action(async (opts) => {
+      const provider = await resolveProviderName(opts.provider);
       const result = await refundPayment({
-        provider: opts.provider as ProviderName,
+        provider: provider as ProviderName,
         id: opts.id,
         amount: opts.amount ? Number(opts.amount) : undefined
       });
       console.log(JSON.stringify(result, null, 2));
     });
+
+  payments.addHelpText(
+    "after",
+    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n`
+  );
 }

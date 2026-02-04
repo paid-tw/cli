@@ -11,4 +11,9 @@ export function registerProviderCommands(program: Command) {
       const result = listProviders();
       console.log(JSON.stringify(result, null, 2));
     });
+
+  providers.addHelpText(
+    "after",
+    `\nExamples:\n  paid providers list\n`
+  );
 }

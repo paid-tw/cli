@@ -10,8 +10,8 @@
 - 與 paid‑tw OAuth 整合
 
 ## 指令概覽（MVP）
-- `paid auth login`
-- `paid auth status`
+- `paid tw auth login`（選用，僅 paid‑tw 功能需要）
+- `paid tw auth status`（選用，僅 paid‑tw 功能需要）
 - `paid providers list`
 - `paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=...`
 - `paid payments get --provider=payuni --id=...`
@@ -26,6 +26,8 @@
 
 ### config.toml 範例
 ```toml
+defaultProvider = "payuni"
+
 [providers.payuni]
 merchantId = "MS12345678"
 hashKey = "your_hash_key"
@@ -33,14 +35,33 @@ hashIv = "your_hash_iv"
 sandbox = true
 ```
 
+### 預設 provider 優先序
+1. `--provider`
+2. `PAID_DEFAULT_PROVIDER`
+3. `config.toml` 的 `defaultProvider`
+4. 若只設定一個 `providers`，自動使用該 provider
+
+### 環境變數
+```bash
+PAID_DEFAULT_PROVIDER=payuni
+PAYUNI_MERCHANT_ID=MS12345678
+PAYUNI_HASH_KEY=your_hash_key
+PAYUNI_HASH_IV=your_hash_iv
+PAYUNI_SANDBOX=true
+```
+
 ## Help 範例
 ```bash
 paid --help
+paid tw --help
 paid payments --help
 paid payments create --help
-paid auth --help
+paid tw auth --help
 paid config --help
 ```
+
+## paid‑tw 加值服務（選用）
+若需要使用 paid‑tw 平台提供的額外服務（例如 OAuth 登入、後續的雲端功能），使用 `paid tw ...` 子命令。
 
 ## 範例輸出（格式）
 ### 建立交易

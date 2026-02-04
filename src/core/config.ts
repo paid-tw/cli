@@ -12,6 +12,7 @@ export interface ProviderConfig {
 }
 
 export interface PaidConfig {
+  defaultProvider?: ProviderName;
   providers?: Record<string, ProviderConfig>;
 }
 
@@ -43,6 +44,36 @@ export async function setProviderConfig(provider: ProviderName, input: ProviderC
   await fs.writeFile(CONFIG_PATH, TOML.stringify(next));
 }
 
+export async function setDefaultProvider(provider: ProviderName) {
+  const existing = await getConfig();
+  const next: PaidConfig = { ...existing, defaultProvider: provider };
+  await fs.mkdir(CONFIG_DIR, { recursive: true });
+  await fs.writeFile(CONFIG_PATH, TOML.stringify(next));
+}
+
+export async function resolveProviderName(input?: string): Promise<ProviderName> {
+  if (input) {
+    return ensureProviderName(input);
+  }
+
+  const envDefault = process.env.PAID_DEFAULT_PROVIDER;
+  if (envDefault) {
+    return ensureProviderName(envDefault);
+  }
+
+  const cfg = await getConfig();
+  if (cfg.defaultProvider) {
+    return ensureProviderName(cfg.defaultProvider);
+  }
+
+  const providers = Object.keys(cfg.providers ?? {}).filter(isKnownProvider);
+  if (providers.length === 1) {
+    return providers[0] as ProviderName;
+  }
+
+  throw new Error("未指定 provider，且找不到預設值");
+}
+
 export async function resolveProviderConfig(
   provider: ProviderName,
   flags?: ProviderConfig
@@ -67,4 +98,17 @@ export async function resolveProviderConfig(
 
 function cleanUndefined<T extends Record<string, unknown>>(input: T): T {
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as T;
+}
+
+const KNOWN_PROVIDERS: ProviderName[] = ["payuni", "newebpay", "ecpay"];
+
+function isKnownProvider(value: string): value is ProviderName {
+  return KNOWN_PROVIDERS.includes(value as ProviderName);
+}
+
+function ensureProviderName(value: string): ProviderName {
+  if (!isKnownProvider(value)) {
+    throw new Error(`不支援的 provider: ${value}`);
+  }
+  return value;
 }

@@ -1,12 +1,18 @@
 import { Command } from "commander";
 import { startOauthLogin, getAuthStatus } from "../core/oauth.js";
 
-export function registerAuthCommands(program: Command) {
-  const auth = program.command("auth").description("OAuth 登入與狀態");
+export function registerTwCommands(program: Command) {
+  const tw = program
+    .command("tw")
+    .description("paid‑tw 加值服務（選用）");
+
+  const auth = tw
+    .command("auth")
+    .description("OAuth 登入與狀態（僅在使用 paid.tw API 時需要）");
 
   auth
     .command("login")
-    .description("透過 paid‑tw OAuth 登入")
+    .description("透過 paid‑tw OAuth 登入（選用）")
     .option("--scopes <scopes>", "OAuth scopes", "payments:read payments:write")
     .action(async (opts) => {
       const result = await startOauthLogin(opts.scopes);
@@ -29,4 +35,14 @@ export function registerAuthCommands(program: Command) {
       console.log("expires_at:", status.expiresAt);
       console.log("scopes:", status.scopes.join(" "));
     });
+
+  auth.addHelpText(
+    "after",
+    `\nExamples:\n  paid tw auth login\n  paid tw auth login --scopes "payments:read payments:write refunds:write"\n  paid tw auth status\n`
+  );
+
+  tw.addHelpText(
+    "after",
+    `\nExamples:\n  paid tw auth login\n  paid tw auth status\n`
+  );
 }
