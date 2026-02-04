@@ -1,4 +1,5 @@
 import { PaymentResult } from "./schema.js";
+import { getBankDisplay } from "../providers/tw-banks.js";
 
 export type OutputFormat = "json" | "pretty";
 
@@ -26,6 +27,7 @@ function renderPrettyPayment(result: PaymentResult) {
   lines.push("付款資訊");
   lines.push(kv("支付工具", formatPaymentType(raw)));
   lines.push(kv("卡號", formatCard(raw.Card6No, raw.Card4No)));
+  lines.push(kv("發卡銀行", formatBank(raw.CardBank)));
   lines.push(kv("授權碼", asString(raw.AuthCode) ?? "-"));
   lines.push(kv("手續費", formatMoney(asNumber(raw.TradeFee))));
 
@@ -110,6 +112,13 @@ function formatPaymentType(raw: Record<string, unknown>) {
     default:
       return value ?? "-";
   }
+}
+
+function formatBank(code: unknown) {
+  const value = asString(code);
+  if (!value || value === "-") return "-";
+  const display = getBankDisplay(value);
+  return display ?? value;
 }
 
 function asString(input: unknown): string | undefined {
