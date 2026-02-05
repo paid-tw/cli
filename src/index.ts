@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name("paid")
   .description("paid CLI: 台灣金流整合工具（MVP: PAYUNi）")
-  .version("0.1.0")
+  .version("0.1.2")
   .showHelpAfterError()
   .showSuggestionAfterError();
 
@@ -22,6 +22,34 @@ registerConfigCommands(program);
 registerProviderCommands(program);
 registerDoctorCommand(program);
 registerTwCommands(program);
+
+// Version info command
+program
+  .command("version")
+  .description("顯示詳細版本資訊")
+  .option("--json", "JSON 格式輸出")
+  .action((opts) => {
+    const versionInfo = {
+      version: "0.1.2",
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+    };
+
+    if (opts.json) {
+      console.log(JSON.stringify({
+        success: true,
+        data: versionInfo,
+        metadata: {
+          timestamp: new Date().toISOString(),
+        },
+      }, null, 2));
+    } else {
+      console.log(`paid CLI v${versionInfo.version}`);
+      console.log(`Node: ${versionInfo.node}`);
+      console.log(`Platform: ${versionInfo.platform} (${versionInfo.arch})`);
+    }
+  });
 
 program.addHelpText(
   "after",
