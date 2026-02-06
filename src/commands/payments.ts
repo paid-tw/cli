@@ -3,6 +3,7 @@ import { createPayment, getPayment, refundPayment } from "../core/payments.js";
 import { PaymentMethod, ProviderName } from "../core/schema.js";
 import { getConfig, resolveProviderName } from "../core/config.js";
 import { formatPaymentOutput, OutputFormat } from "../core/format.js";
+import { success, error, formatOutput } from "../core/output.js";
 
 export function registerPaymentsCommands(program: Command) {
   const payments = program.command("payments").description("交易建立、查詢、退款");
@@ -18,31 +19,41 @@ export function registerPaymentsCommands(program: Command) {
     .option("--item-desc <desc>", "商品描述")
     .option("--return-url <url>", "Return URL")
     .option("--notify-url <url>", "Notify URL")
+    .option("--json", "JSON 格式輸出")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
-      const runtime = resolveRuntimeSandbox(opts);
-      if (!opts.id && !opts.tradeNo) {
-        throw new Error("請提供 --id 或 --trade-no");
+      try {
+        const runtime = resolveRuntimeSandbox(opts);
+        const provider = await resolveProviderName(opts.provider);
+        const result = await createPayment(
+          {
+            provider: provider as ProviderName,
+            amount: Number(opts.amount),
+            currency: opts.currency,
+            method: opts.method as PaymentMethod,
+            orderId: opts.orderId,
+            itemDesc: opts.itemDesc,
+            returnUrl: opts.returnUrl,
+            notifyUrl: opts.notifyUrl
+          },
+          runtime
+        );
+        const response = success(result, {
+          command: "payments create",
+          environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+        });
+        console.log(formatOutput(response, opts.json ?? false));
+      } catch (err) {
+        const response = error(
+          "PAYMENT_CREATE_FAILED",
+          err instanceof Error ? err.message : String(err),
+          err,
+          { command: "payments create" }
+        );
+        console.error(formatOutput(response, opts.json ?? false));
+        process.exit(1);
       }
-      if (opts.id && opts.tradeNo) {
-        throw new Error("請擇一使用 --id 或 --trade-no");
-      }
-      const provider = await resolveProviderName(opts.provider);
-      const result = await createPayment(
-        {
-          provider: provider as ProviderName,
-          amount: Number(opts.amount),
-          currency: opts.currency,
-          method: opts.method as PaymentMethod,
-          orderId: opts.orderId,
-          itemDesc: opts.itemDesc,
-          returnUrl: opts.returnUrl,
-          notifyUrl: opts.notifyUrl
-        },
-        runtime
-      );
-      console.log(JSON.stringify(result, null, 2));
     });
 
   payments
@@ -52,27 +63,52 @@ export function registerPaymentsCommands(program: Command) {
     .option("--id <id>", "交易 ID（MerTradeNo）")
     .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
     .option("--format <format>", "輸出格式 (json/pretty)")
+    .option("--json", "JSON 格式輸出（等同 --format=json）")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
-      const runtime = resolveRuntimeSandbox(opts);
-      if (!opts.id && !opts.tradeNo) {
-        throw new Error("請提供 --id 或 --trade-no");
+      try {
+        const runtime = resolveRuntimeSandbox(opts);
+        if (!opts.id && !opts.tradeNo) {
+          throw new Error("請提供 --id 或 --trade-no");
+        }
+        if (opts.id && opts.tradeNo) {
+          throw new Error("請擇一使用 --id 或 --trade-no");
+        }
+        const provider = await resolveProviderName(opts.provider);
+        const result = await getPayment(
+          {
+            provider: provider as ProviderName,
+            id: opts.id,
+            tradeNo: opts.tradeNo
+          },
+          runtime
+        );
+        
+        // Support both --json and --format=json
+        const useJson = opts.json || opts.format === "json";
+        const response = success(result, {
+          command: "payments get",
+          environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+        });
+        
+        if (useJson) {
+          console.log(formatOutput(response, true));
+        } else {
+          // Pretty format - use existing formatter
+          console.log(formatPaymentOutput(result, "pretty"));
+        }
+      } catch (err) {
+        const useJson = opts.json || opts.format === "json";
+        const response = error(
+          "PAYMENT_GET_FAILED",
+          err instanceof Error ? err.message : String(err),
+          err,
+          { command: "payments get" }
+        );
+        console.error(formatOutput(response, useJson));
+        process.exit(1);
       }
-      if (opts.id && opts.tradeNo) {
-        throw new Error("請擇一使用 --id 或 --trade-no");
-      }
-      const provider = await resolveProviderName(opts.provider);
-      const result = await getPayment(
-        {
-          provider: provider as ProviderName,
-          id: opts.id,
-          tradeNo: opts.tradeNo
-        },
-        runtime
-      );
-      const outputFormat = await resolveOutputFormat(opts.format);
-      console.log(formatPaymentOutput(result, outputFormat));
     });
 
   payments
@@ -81,20 +117,36 @@ export function registerPaymentsCommands(program: Command) {
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
     .requiredOption("--id <id>", "交易 ID")
     .option("--amount <amount>", "退款金額，預設全額")
+    .option("--json", "JSON 格式輸出")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
-      const runtime = resolveRuntimeSandbox(opts);
-      const provider = await resolveProviderName(opts.provider);
-      const result = await refundPayment(
-        {
-          provider: provider as ProviderName,
-          id: opts.id,
-          amount: opts.amount ? Number(opts.amount) : undefined
-        },
-        runtime
-      );
-      console.log(JSON.stringify(result, null, 2));
+      try {
+        const runtime = resolveRuntimeSandbox(opts);
+        const provider = await resolveProviderName(opts.provider);
+        const result = await refundPayment(
+          {
+            provider: provider as ProviderName,
+            id: opts.id,
+            amount: opts.amount ? Number(opts.amount) : undefined
+          },
+          runtime
+        );
+        const response = success(result, {
+          command: "payments refund",
+          environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+        });
+        console.log(formatOutput(response, opts.json ?? false));
+      } catch (err) {
+        const response = error(
+          "PAYMENT_REFUND_FAILED",
+          err instanceof Error ? err.message : String(err),
+          err,
+          { command: "payments refund" }
+        );
+        console.error(formatOutput(response, opts.json ?? false));
+        process.exit(1);
+      }
     });
 
   payments.addHelpText(
