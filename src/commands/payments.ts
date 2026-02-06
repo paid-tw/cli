@@ -94,6 +94,7 @@ export function registerPaymentsCommands(program: Command) {
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
     .requiredOption("--id <id>", "交易 ID")
     .option("--amount <amount>", "退款金額，預設全額")
+    .option("--json", "JSON 格式輸出")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
@@ -107,7 +108,11 @@ export function registerPaymentsCommands(program: Command) {
         },
         runtime
       );
-      console.log(JSON.stringify(result, null, 2));
+      const response = success(result, {
+        command: "payments refund",
+        environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+      });
+      console.log(formatOutput(response, opts.json ?? false));
     });
 
   payments.addHelpText(
