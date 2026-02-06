@@ -3,6 +3,7 @@ import { createPayment, getPayment, refundPayment } from "../core/payments.js";
 import { PaymentMethod, ProviderName } from "../core/schema.js";
 import { getConfig, resolveProviderName } from "../core/config.js";
 import { formatPaymentOutput, OutputFormat } from "../core/format.js";
+import { success, formatOutput } from "../core/output.js";
 
 export function registerPaymentsCommands(program: Command) {
   const payments = program.command("payments").description("交易建立、查詢、退款");
@@ -18,16 +19,11 @@ export function registerPaymentsCommands(program: Command) {
     .option("--item-desc <desc>", "商品描述")
     .option("--return-url <url>", "Return URL")
     .option("--notify-url <url>", "Notify URL")
+    .option("--json", "JSON 格式輸出")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
       const runtime = resolveRuntimeSandbox(opts);
-      if (!opts.id && !opts.tradeNo) {
-        throw new Error("請提供 --id 或 --trade-no");
-      }
-      if (opts.id && opts.tradeNo) {
-        throw new Error("請擇一使用 --id 或 --trade-no");
-      }
       const provider = await resolveProviderName(opts.provider);
       const result = await createPayment(
         {
@@ -42,7 +38,11 @@ export function registerPaymentsCommands(program: Command) {
         },
         runtime
       );
-      console.log(JSON.stringify(result, null, 2));
+      const response = success(result, {
+        command: "payments create",
+        environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+      });
+      console.log(formatOutput(response, opts.json ?? false));
     });
 
   payments
