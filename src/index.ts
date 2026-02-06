@@ -5,6 +5,7 @@ import { registerConfigCommands } from "./commands/config.js";
 import { registerProviderCommands } from "./commands/providers.js";
 import { loadDotEnv } from "./core/config.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
+import { success, formatOutput } from "./core/output.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -53,14 +54,12 @@ program
       arch: process.arch,
     };
 
+    const response = success(versionInfo, {
+      command: "version",
+    });
+
     if (opts.json) {
-      console.log(JSON.stringify({
-        success: true,
-        data: versionInfo,
-        metadata: {
-          timestamp: new Date().toISOString(),
-        },
-      }, null, 2));
+      console.log(formatOutput(response, true));
     } else {
       console.log(`paid CLI v${versionInfo.version}`);
       console.log(`Node: ${versionInfo.node}`);
