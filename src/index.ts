@@ -5,6 +5,15 @@ import { registerConfigCommands } from "./commands/config.js";
 import { registerProviderCommands } from "./commands/providers.js";
 import { loadDotEnv } from "./core/config.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// Import version from package.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
+const version = packageJson.version;
 
 loadDotEnv();
 
@@ -13,7 +22,7 @@ const program = new Command();
 program
   .name("paid")
   .description("paid CLI: 台灣金流整合工具（MVP: PAYUNi）")
-  .version("0.1.2")
+  .version(version)
   .showHelpAfterError()
   .showSuggestionAfterError();
 
@@ -23,14 +32,22 @@ registerProviderCommands(program);
 registerDoctorCommand(program);
 registerTwCommands(program);
 
+// TypeScript interface for version info
+interface VersionInfo {
+  version: string;
+  node: string;
+  platform: string;
+  arch: string;
+}
+
 // Version info command
 program
   .command("version")
   .description("顯示詳細版本資訊")
   .option("--json", "JSON 格式輸出")
   .action((opts) => {
-    const versionInfo = {
-      version: "0.1.2",
+    const versionInfo: VersionInfo = {
+      version,
       node: process.version,
       platform: process.platform,
       arch: process.arch,
