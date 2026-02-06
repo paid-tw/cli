@@ -52,6 +52,7 @@ export function registerPaymentsCommands(program: Command) {
     .option("--id <id>", "交易 ID（MerTradeNo）")
     .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
     .option("--format <format>", "輸出格式 (json/pretty)")
+    .option("--json", "JSON 格式輸出（等同 --format=json）")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
     .action(async (opts) => {
@@ -71,8 +72,20 @@ export function registerPaymentsCommands(program: Command) {
         },
         runtime
       );
-      const outputFormat = await resolveOutputFormat(opts.format);
-      console.log(formatPaymentOutput(result, outputFormat));
+      
+      // Support both --json and --format=json
+      const useJson = opts.json || opts.format === "json";
+      const response = success(result, {
+        command: "payments get",
+        environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+      });
+      
+      if (useJson) {
+        console.log(formatOutput(response, true));
+      } else {
+        // Pretty format - use existing formatter
+        console.log(formatPaymentOutput(result, "pretty"));
+      }
     });
 
   payments
