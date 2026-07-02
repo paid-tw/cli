@@ -4,6 +4,7 @@ import { resolveProviderName } from "../core/config.js";
 import { getPayment } from "../core/payments.js";
 import { ProviderName } from "../core/schema.js";
 import { success, error, formatOutput, errorFromException } from "../core/output.js";
+import { isPaymentError } from "../core/errors.js";
 
 export function registerProviderCommands(program: Command) {
   const providers = program.command("providers").description("支付服務清單");
@@ -53,24 +54,30 @@ export function registerProviderCommands(program: Command) {
         if (opts.id && opts.tradeNo) {
           throw new Error("請擇一使用 --id 或 --trade-no");
         }
-        const result = await getPayment(
-          {
-            provider: provider as ProviderName,
-            id: opts.id,
-            tradeNo: opts.tradeNo,
-          },
-          runtime,
-        );
-        const response = success(result, {
-          command: "providers ping",
-          environment:
-            runtime?.sandbox === true
-              ? "sandbox"
-              : runtime?.sandbox === false
-                ? "production"
-                : undefined,
-        });
-        console.log(formatOutput(response, opts.json ?? false));
+        const environment =
+          runtime?.sandbox === true
+            ? "sandbox"
+            : runtime?.sandbox === false
+              ? "production"
+              : undefined;
+        const meta = { command: "providers ping", environment } as const;
+        try {
+          const result = await getPayment(
+            { provider: provider as ProviderName, id: opts.id, tradeNo: opts.tradeNo },
+            runtime,
+          );
+          console.log(formatOutput(success({ reachable: true, result }, meta), opts.json ?? false));
+        } catch (err) {
+          // A gateway-level business error (NOT_FOUND/VALIDATION/...) still proves
+          // the gateway is reachable and accepted our credentials — the point of a
+          // ping. Only NETWORK (unreachable) and AUTH (bad creds) are real failures.
+          if (isPaymentError(err) && err.code !== "NETWORK" && err.code !== "AUTH") {
+            const reachable = { reachable: true, gateway: err.code, note: err.message };
+            console.log(formatOutput(success(reachable, meta), opts.json ?? false));
+          } else {
+            throw err;
+          }
+        }
       } catch (err) {
         const response = errorFromException("PROVIDERS_PING_FAILED", err, {
           command: "providers ping",
