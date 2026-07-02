@@ -30,7 +30,11 @@ export function testProvider(overrides: Partial<ProviderRuntimeConfig> = {}) {
  * envelopes and decrypt captured requests.
  */
 export function payuniEncrypt(plain: string, key = KEY, iv = IV): string {
-  const cipher = crypto.createCipheriv("aes-256-gcm", Buffer.from(key, "utf8"), Buffer.from(iv, "utf8"));
+  const cipher = crypto.createCipheriv(
+    "aes-256-gcm",
+    Buffer.from(key, "utf8"),
+    Buffer.from(iv, "utf8"),
+  );
   const encrypted = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const combined = `${encrypted.toString("base64")}:::${cipher.getAuthTag().toString("base64")}`;
   return Buffer.from(combined, "utf8").toString("hex");
@@ -39,7 +43,11 @@ export function payuniEncrypt(plain: string, key = KEY, iv = IV): string {
 export function payuniDecrypt(hex: string, key = KEY, iv = IV): string {
   const raw = Buffer.from(hex, "hex").toString("utf8");
   const [encryptedBase64, tagBase64] = raw.split(":::");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", Buffer.from(key, "utf8"), Buffer.from(iv, "utf8"));
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    Buffer.from(key, "utf8"),
+    Buffer.from(iv, "utf8"),
+  );
   decipher.setAuthTag(Buffer.from(tagBase64 ?? "", "base64"));
   return Buffer.concat([
     decipher.update(Buffer.from(encryptedBase64 ?? "", "base64")),

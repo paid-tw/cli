@@ -30,10 +30,7 @@ export type OutputResponse<T = unknown> = SuccessResponse<T> | ErrorResponse;
 /**
  * Create a success response
  */
-export function success<T>(
-  data: T,
-  metadata?: Partial<OutputMetadata>
-): SuccessResponse<T> {
+export function success<T>(data: T, metadata?: Partial<OutputMetadata>): SuccessResponse<T> {
   return {
     success: true,
     data,
@@ -51,7 +48,7 @@ export function error(
   code: string,
   message: string,
   details?: unknown,
-  metadata?: Partial<OutputMetadata>
+  metadata?: Partial<OutputMetadata>,
 ): ErrorResponse {
   return {
     success: false,
@@ -70,19 +67,16 @@ export function error(
 /**
  * Format output based on --json flag
  */
-export function formatOutput<T>(
-  response: OutputResponse<T>,
-  json: boolean
-): string {
+export function formatOutput<T>(response: OutputResponse<T>, json: boolean): string {
   if (json) {
     return JSON.stringify(response, null, 2);
   }
-  
+
   // Pretty format for human reading
   if (!response.success) {
     return `❌ Error: ${response.error.message} (${response.error.code})`;
   }
-  
+
   // For success, default to JSON if no custom formatter
   return JSON.stringify(response, null, 2);
 }

@@ -15,7 +15,7 @@ export function supports(capabilities: ReadonlySet<Capability>, capability: Capa
 export function assertSupports(
   provider: string,
   capabilities: ReadonlySet<Capability>,
-  capability: Capability
+  capability: Capability,
 ): void {
   if (!capabilities.has(capability)) {
     throw new PaymentError("UNSUPPORTED", `${provider} 尚未支援 ${capability}`, provider);

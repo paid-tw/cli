@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import { createPayment, getPayment, refundPayment } from "../core/payments.js";
 import { PaymentMethod, ProviderName } from "../core/schema.js";
-import { getConfig, resolveProviderName } from "../core/config.js";
-import { formatPaymentOutput, OutputFormat } from "../core/format.js";
+import { resolveProviderName } from "../core/config.js";
+import { formatPaymentOutput } from "../core/format.js";
 import { success, error, formatOutput } from "../core/output.js";
 
 export function registerPaymentsCommands(program: Command) {
@@ -35,13 +35,18 @@ export function registerPaymentsCommands(program: Command) {
             orderId: opts.orderId,
             itemDesc: opts.itemDesc,
             returnUrl: opts.returnUrl,
-            notifyUrl: opts.notifyUrl
+            notifyUrl: opts.notifyUrl,
           },
-          runtime
+          runtime,
         );
         const response = success(result, {
           command: "payments create",
-          environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+          environment:
+            runtime?.sandbox === true
+              ? "sandbox"
+              : runtime?.sandbox === false
+                ? "production"
+                : undefined,
         });
         console.log(formatOutput(response, opts.json ?? false));
       } catch (err) {
@@ -49,7 +54,7 @@ export function registerPaymentsCommands(program: Command) {
           "PAYMENT_CREATE_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "payments create" }
+          { command: "payments create" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -80,18 +85,23 @@ export function registerPaymentsCommands(program: Command) {
           {
             provider: provider as ProviderName,
             id: opts.id,
-            tradeNo: opts.tradeNo
+            tradeNo: opts.tradeNo,
           },
-          runtime
+          runtime,
         );
-        
+
         // Support both --json and --format=json
         const useJson = opts.json || opts.format === "json";
         const response = success(result, {
           command: "payments get",
-          environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+          environment:
+            runtime?.sandbox === true
+              ? "sandbox"
+              : runtime?.sandbox === false
+                ? "production"
+                : undefined,
         });
-        
+
         if (useJson) {
           console.log(formatOutput(response, true));
         } else {
@@ -104,7 +114,7 @@ export function registerPaymentsCommands(program: Command) {
           "PAYMENT_GET_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "payments get" }
+          { command: "payments get" },
         );
         console.error(formatOutput(response, useJson));
         process.exit(1);
@@ -128,13 +138,18 @@ export function registerPaymentsCommands(program: Command) {
           {
             provider: provider as ProviderName,
             id: opts.id,
-            amount: opts.amount ? Number(opts.amount) : undefined
+            amount: opts.amount ? Number(opts.amount) : undefined,
           },
-          runtime
+          runtime,
         );
         const response = success(result, {
           command: "payments refund",
-          environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+          environment:
+            runtime?.sandbox === true
+              ? "sandbox"
+              : runtime?.sandbox === false
+                ? "production"
+                : undefined,
         });
         console.log(formatOutput(response, opts.json ?? false));
       } catch (err) {
@@ -142,7 +157,7 @@ export function registerPaymentsCommands(program: Command) {
           "PAYMENT_REFUND_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "payments refund" }
+          { command: "payments refund" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -151,7 +166,7 @@ export function registerPaymentsCommands(program: Command) {
 
   payments.addHelpText(
     "after",
-    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  PAYUNi 查詢: --id=MerTradeNo 或 --trade-no=TradeNo\n  PAYUNi 查詢: 會自動帶 Version=2.0、Timestamp、User-Agent=payuni\n  --format: json | pretty\n`
+    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  PAYUNi 查詢: --id=MerTradeNo 或 --trade-no=TradeNo\n  PAYUNi 查詢: 會自動帶 Version=2.0、Timestamp、User-Agent=payuni\n  --format: json | pretty\n`,
   );
 }
 
@@ -162,13 +177,4 @@ function resolveRuntimeSandbox(opts: { sandbox?: boolean; production?: boolean }
   if (opts.sandbox) return { sandbox: true };
   if (opts.production) return { sandbox: false };
   return undefined;
-}
-
-async function resolveOutputFormat(format?: string): Promise<OutputFormat> {
-  if (format === "json" || format === "pretty") return format;
-  const cfg = await getConfig();
-  if (cfg.outputFormat === "json" || cfg.outputFormat === "pretty") {
-    return cfg.outputFormat;
-  }
-  return "json";
 }

@@ -24,7 +24,7 @@ export function registerProviderCommands(program: Command) {
           "PROVIDERS_LIST_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "providers list" }
+          { command: "providers list" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -57,13 +57,18 @@ export function registerProviderCommands(program: Command) {
           {
             provider: provider as ProviderName,
             id: opts.id,
-            tradeNo: opts.tradeNo
+            tradeNo: opts.tradeNo,
           },
-          runtime
+          runtime,
         );
         const response = success(result, {
           command: "providers ping",
-          environment: runtime?.sandbox === true ? "sandbox" : runtime?.sandbox === false ? "production" : undefined,
+          environment:
+            runtime?.sandbox === true
+              ? "sandbox"
+              : runtime?.sandbox === false
+                ? "production"
+                : undefined,
         });
         console.log(formatOutput(response, opts.json ?? false));
       } catch (err) {
@@ -71,7 +76,7 @@ export function registerProviderCommands(program: Command) {
           "PROVIDERS_PING_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "providers ping" }
+          { command: "providers ping" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -80,7 +85,7 @@ export function registerProviderCommands(program: Command) {
 
   providers.addHelpText(
     "after",
-    `\nExamples:\n  paid providers list\n  paid providers ping --provider=payuni --id=ORDER-123\n  paid providers ping --provider=payuni --trade-no=UNI123456789\n`
+    `\nExamples:\n  paid providers list\n  paid providers ping --provider=payuni --id=ORDER-123\n  paid providers ping --provider=payuni --trade-no=UNI123456789\n`,
   );
 }
 

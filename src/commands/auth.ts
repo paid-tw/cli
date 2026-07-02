@@ -3,13 +3,9 @@ import { startOauthLogin, getAuthStatus } from "../core/oauth.js";
 import { success, error, formatOutput } from "../core/output.js";
 
 export function registerTwCommands(program: Command) {
-  const tw = program
-    .command("tw")
-    .description("paid‑tw 加值服務（選用）");
+  const tw = program.command("tw").description("paid‑tw 加值服務（選用）");
 
-  const auth = tw
-    .command("auth")
-    .description("OAuth 登入與狀態（僅在使用 paid.tw API 時需要）");
+  const auth = tw.command("auth").description("OAuth 登入與狀態（僅在使用 paid.tw API 時需要）");
 
   auth
     .command("login")
@@ -36,7 +32,7 @@ export function registerTwCommands(program: Command) {
           "AUTH_LOGIN_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "tw auth login" }
+          { command: "tw auth login" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -70,7 +66,7 @@ export function registerTwCommands(program: Command) {
           "AUTH_STATUS_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "tw auth status" }
+          { command: "tw auth status" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -79,11 +75,8 @@ export function registerTwCommands(program: Command) {
 
   auth.addHelpText(
     "after",
-    `\nExamples:\n  paid tw auth login\n  paid tw auth login --scopes "payments:read payments:write refunds:write"\n  paid tw auth status\n`
+    `\nExamples:\n  paid tw auth login\n  paid tw auth login --scopes "payments:read payments:write refunds:write"\n  paid tw auth status\n`,
   );
 
-  tw.addHelpText(
-    "after",
-    `\nExamples:\n  paid tw auth login\n  paid tw auth status\n`
-  );
+  tw.addHelpText("after", `\nExamples:\n  paid tw auth login\n  paid tw auth status\n`);
 }

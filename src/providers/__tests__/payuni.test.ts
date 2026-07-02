@@ -2,15 +2,7 @@ import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { isPaymentError, PaymentError } from "../../core/errors.js";
 import { supports } from "../../core/capabilities.js";
-import {
-  BASE,
-  parseRequest,
-  paySuccess,
-  payError,
-  QUERY_URL,
-  server,
-  testProvider,
-} from "./server.js";
+import { parseRequest, paySuccess, payError, QUERY_URL, server, testProvider } from "./server.js";
 import { QUERY_FLAT_LINEPAY, QUERY_JSON_PAID, QUERY_QS_JSON_RESULT } from "./fixtures.js";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -62,7 +54,7 @@ describe("PAYUNi getPayment — request signing", () => {
       http.post(QUERY_URL, async ({ request }) => {
         captured = parseRequest(await request.text());
         return HttpResponse.json(paySuccess(QUERY_JSON_PAID));
-      })
+      }),
     );
 
     await testProvider().getPayment({ merTradeNo: "ORDER-123" });

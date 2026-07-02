@@ -1,11 +1,7 @@
 import crypto from "node:crypto";
 import { assertSupports, Capability } from "../core/capabilities.js";
 import { PaymentError, PaymentErrorCode } from "../core/errors.js";
-import {
-  GetPaymentRequest,
-  PaymentProvider,
-  ProviderRuntimeConfig,
-} from "../core/providers.js";
+import { GetPaymentRequest, PaymentProvider, ProviderRuntimeConfig } from "../core/providers.js";
 import { NormalizedPaymentData } from "../core/schema.js";
 
 const PAYUNI_ORIGINS = {
@@ -44,11 +40,7 @@ export function createPayuniProvider(config: ProviderRuntimeConfig): PaymentProv
       assertSupports("payuni", CAPABILITIES, "GET_PAYMENT");
       const { merchantId, hashKey, hashIv } = requireCredentials(config);
       if (!input.merTradeNo && !input.tradeNo) {
-        throw new PaymentError(
-          "VALIDATION",
-          "PAYUNi 查詢需要提供 MerTradeNo 或 TradeNo",
-          "payuni"
-        );
+        throw new PaymentError("VALIDATION", "PAYUNi 查詢需要提供 MerTradeNo 或 TradeNo", "payuni");
       }
 
       const params = new URLSearchParams({
@@ -85,7 +77,7 @@ export function createPayuniProvider(config: ProviderRuntimeConfig): PaymentProv
           "PROVIDER",
           `PAYUNi query failed: ${response.status} ${response.statusText}`,
           "payuni",
-          { rawCode: String(response.status) }
+          { rawCode: String(response.status) },
         );
       }
 
@@ -101,7 +93,7 @@ export function createPayuniProvider(config: ProviderRuntimeConfig): PaymentProv
           mapQueryStatusToCode(result.Status),
           `${result.Status}: ${rawMessage}`,
           "payuni",
-          { rawCode: result.Status, rawMessage, raw: result }
+          { rawCode: result.Status, rawMessage, raw: result },
         );
       }
 
@@ -126,11 +118,7 @@ export function createPayuniProvider(config: ProviderRuntimeConfig): PaymentProv
 function requireCredentials(config: ProviderRuntimeConfig) {
   const { merchantId, hashKey, hashIv } = config;
   if (!merchantId || !hashKey || !hashIv) {
-    throw new PaymentError(
-      "AUTH",
-      "缺少 PAYUNi 憑證（MerchantID / HashKey / HashIV）",
-      "payuni"
-    );
+    throw new PaymentError("AUTH", "缺少 PAYUNi 憑證（MerchantID / HashKey / HashIV）", "payuni");
   }
   return { merchantId, hashKey, hashIv };
 }
@@ -233,7 +221,7 @@ function parseDecryptedPayload(input: string): Record<string, unknown> {
   return obj;
 }
 
-function tryParseJson(input: string): unknown | undefined {
+function tryParseJson(input: string): unknown {
   try {
     return JSON.parse(input);
   } catch {

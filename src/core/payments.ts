@@ -11,7 +11,7 @@ import { resolveProviderConfig } from "./config.js";
 
 export async function createPayment(
   input: CreatePaymentInput,
-  runtime?: { sandbox?: boolean }
+  runtime?: { sandbox?: boolean },
 ): Promise<PaymentResult> {
   const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
   const provider = createProvider(input.provider, cfg);
@@ -36,7 +36,7 @@ export async function createPayment(
 
 export async function getPayment(
   input: GetPaymentInput,
-  runtime?: { sandbox?: boolean }
+  runtime?: { sandbox?: boolean },
 ): Promise<PaymentResult> {
   const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
   const provider = createProvider(input.provider, cfg);
@@ -54,7 +54,7 @@ export async function getPayment(
 
 export async function refundPayment(
   input: RefundPaymentInput,
-  runtime?: { sandbox?: boolean }
+  runtime?: { sandbox?: boolean },
 ): Promise<RefundResult> {
   const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
   const provider = createProvider(input.provider, cfg);

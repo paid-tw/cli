@@ -42,7 +42,7 @@ export class PaymentError extends Error {
     code: PaymentErrorCode,
     message: string,
     provider?: string,
-    options: PaymentErrorOptions = {}
+    options: PaymentErrorOptions = {},
   ) {
     super(message, options.cause !== undefined ? { cause: options.cause } : undefined);
     this.name = "PaymentError";

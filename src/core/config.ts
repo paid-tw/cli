@@ -52,8 +52,8 @@ export async function setProviderConfig(provider: ProviderName, input: ProviderC
   const existing = await getConfig();
   const providers = existing.providers ?? {};
   providers[provider] = {
-    ...(providers[provider] ?? {}),
-    ...cleanUndefined(input)
+    ...providers[provider],
+    ...cleanUndefined(input),
   };
   const next: PaidConfig = { ...existing, providers };
   await fs.mkdir(CONFIG_DIR, { recursive: true });
@@ -100,14 +100,14 @@ export async function resolveProviderName(input?: string): Promise<ProviderName>
 export async function resolveProviderConfig(
   provider: ProviderName,
   flags?: ProviderConfig,
-  runtime?: RuntimeEnv
+  runtime?: RuntimeEnv,
 ): Promise<ProviderConfig> {
   const envPrefix = provider.toUpperCase();
   const env: ProviderConfig = {
     merchantId: process.env[`${envPrefix}_MERCHANT_ID`],
     hashKey: process.env[`${envPrefix}_HASH_KEY`],
     hashIv: process.env[`${envPrefix}_HASH_IV`],
-    sandbox: process.env[`${envPrefix}_SANDBOX`] === "true"
+    sandbox: process.env[`${envPrefix}_SANDBOX`] === "true",
   };
 
   const fileConfig = await getConfig();
@@ -121,12 +121,14 @@ export async function resolveProviderConfig(
     ...fileProvider,
     ...env,
     ...flags,
-    sandbox: runtimeSandbox ?? flags?.sandbox ?? env.sandbox ?? fileProvider.sandbox
+    sandbox: runtimeSandbox ?? flags?.sandbox ?? env.sandbox ?? fileProvider.sandbox,
   };
 }
 
 function cleanUndefined<T extends object>(input: T): T {
-  const entries = Object.entries(input as Record<string, unknown>).filter(([, v]) => v !== undefined);
+  const entries = Object.entries(input as Record<string, unknown>).filter(
+    ([, v]) => v !== undefined,
+  );
   return Object.fromEntries(entries) as T;
 }
 

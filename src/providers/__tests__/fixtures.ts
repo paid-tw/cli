@@ -55,6 +55,6 @@ export const QUERY_QS_JSON_RESULT = [
         TradeAmt: "80",
         PaymentType: "2",
       },
-    ])
+    ]),
   )}`,
 ].join("&");
