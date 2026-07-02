@@ -12,6 +12,7 @@ import {
   server,
   testProvider,
 } from "./ecpay-server.js";
+import { QUERY_BAD_MERTRADENO, QUERY_NOT_FOUND } from "./ecpay-fixtures.js";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
@@ -153,6 +154,29 @@ describe("ECPay getPayment (QueryTradeInfo)", () => {
   });
 });
 
+describe("ECPay getPayment — recorded stage responses (field-exact)", () => {
+  // These bodies were recorded live from stage merchant 3002607; their real
+  // CheckMacValue must verify (proving the whole sign+verify path against real
+  // data) before the error TradeStatus is mapped.
+  it("maps a real not-found response (TradeStatus 10200047) to NOT_FOUND", async () => {
+    server.use(http.post(QUERY_URL, () => HttpResponse.text(QUERY_NOT_FOUND)));
+    const err = await testProvider()
+      .getPayment({ merTradeNo: "paidcli-probe-001" })
+      .catch((e) => e);
+    expect((err as PaymentError).code).toBe("NOT_FOUND");
+    expect((err as PaymentError).rawCode).toBe("10200047");
+  });
+
+  it("maps a real empty-MerchantTradeNo response (10200052) to VALIDATION", async () => {
+    server.use(http.post(QUERY_URL, () => HttpResponse.text(QUERY_BAD_MERTRADENO)));
+    const err = await testProvider()
+      .getPayment({ merTradeNo: "whatever" })
+      .catch((e) => e);
+    expect((err as PaymentError).code).toBe("VALIDATION");
+    expect((err as PaymentError).rawCode).toBe("10200052");
+  });
+});
+
 describe("ECPay getPayment — guards (no network)", () => {
   it("requires MerchantTradeNo", async () => {
     const err = await testProvider()
@@ -266,7 +290,12 @@ describe("ECPay refundPayment (DoAction)", () => {
   it("honors a partial --amount override", async () => {
     let doAction: Record<string, string> | undefined;
     server.use(
-      stubQuery({ TradeNo: "T2", TradeAmt: "30000", PaymentType: "Credit_CreditCard" }),
+      stubQuery({
+        TradeNo: "T2",
+        TradeAmt: "30000",
+        PaymentType: "Credit_CreditCard",
+        TradeStatus: "1",
+      }),
       http.post(DOACTION_URL, async ({ request }) => {
         doAction = Object.fromEntries(new URLSearchParams(await request.text()).entries());
         return HttpResponse.text(queryResponse({ TradeNo: "T2", RtnCode: "1", RtnMsg: "OK" }));
@@ -278,7 +307,12 @@ describe("ECPay refundPayment (DoAction)", () => {
 
   it("maps a DoAction RtnCode != 1 to a PROVIDER error", async () => {
     server.use(
-      stubQuery({ TradeNo: "T3", TradeAmt: "100", PaymentType: "Credit_CreditCard" }),
+      stubQuery({
+        TradeNo: "T3",
+        TradeAmt: "100",
+        PaymentType: "Credit_CreditCard",
+        TradeStatus: "1",
+      }),
       http.post(DOACTION_URL, () =>
         HttpResponse.text(queryResponse({ TradeNo: "T3", RtnCode: "10200047", RtnMsg: "已退款" })),
       ),
@@ -291,15 +325,17 @@ describe("ECPay refundPayment (DoAction)", () => {
   });
 
   it("rejects a non-credit-card order before calling DoAction", async () => {
-    server.use(stubQuery({ TradeNo: "T4", TradeAmt: "100", PaymentType: "ATM_TAISHIN" }));
+    server.use(
+      stubQuery({ TradeNo: "T4", TradeAmt: "100", PaymentType: "ATM_TAISHIN", TradeStatus: "1" }),
+    );
     const err = await testProvider()
       .refundPayment({ orderId: "ORDER-R4" })
       .catch((e) => e);
     expect((err as PaymentError).code).toBe("VALIDATION");
   });
 
-  it("fails with NOT_FOUND when the order has no TradeNo", async () => {
-    server.use(stubQuery({ MerchantTradeNo: "ORDER-R5", TradeStatus: "10200095" }));
+  it("fails with NOT_FOUND when a resolvable order has no TradeNo (e.g. unpaid)", async () => {
+    server.use(stubQuery({ MerchantTradeNo: "ORDER-R5", TradeStatus: "0", TradeNo: "" }));
     const err = await testProvider()
       .refundPayment({ orderId: "ORDER-R5" })
       .catch((e) => e);

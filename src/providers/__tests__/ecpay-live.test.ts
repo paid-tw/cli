@@ -13,11 +13,11 @@ import { isPaymentError, PaymentError } from "../../core/errors.js";
  */
 const live = process.env.ECPAY_LIVE === "1";
 
-// ECPay's long-published stage credentials for merchant 3002607.
+// ECPay's public stage credentials for merchant 3002607 (published in the docs).
 const SANDBOX = {
   merchantId: process.env.ECPAY_MERCHANT_ID ?? "3002607",
-  hashKey: process.env.ECPAY_HASH_KEY ?? "5294y06JbISpM5x9",
-  hashIv: process.env.ECPAY_HASH_IV ?? "v77hoKGq4kWxNNIS",
+  hashKey: process.env.ECPAY_HASH_KEY ?? "pwFHCqoQZGmho4w6",
+  hashIv: process.env.ECPAY_HASH_IV ?? "EkRm7iFT261dpevs",
 };
 
 describe.skipIf(!live)("ECPay live QueryTradeInfo (stage)", () => {

@@ -75,6 +75,7 @@ export function createEcpayProvider(config: ProviderRuntimeConfig): EcpayProvide
     const text = await postForm(`${origin}/Cashier/QueryTradeInfo/V5`, params, "QueryTradeInfo");
     const parsed = Object.fromEntries(new URLSearchParams(text).entries());
     verifyResponseMac(parsed, hashKey, hashIv);
+    assertQueryOk(parsed);
     return parsed;
   };
 
@@ -311,6 +312,37 @@ function verifyResponseMac(parsed: Record<string, string>, hashKey: string, hash
   }
 }
 
+/**
+ * QueryTradeInfo answers HTTP 200 for *every* well-formed request; a missing or
+ * malformed order comes back with all fields blank and an error TradeStatus
+ * (verified live against the stage merchant, see ecpay-fixtures.ts). Only 0
+ * (unpaid) and 1 (paid) are real payment states — everything else is normalized
+ * to a PaymentError so callers don't mistake `10200047` for a status.
+ */
+function assertQueryOk(parsed: Record<string, string>): void {
+  const status = parsed.TradeStatus;
+  if (status === "0" || status === "1") return;
+  switch (status) {
+    case "10200047": // 查無交易資料 — order does not exist
+      throw new PaymentError("NOT_FOUND", "ECPay 查無交易資料", "ecpay", {
+        rawCode: status,
+        rawMessage: "查無交易資料",
+        raw: parsed,
+      });
+    case "10200052": // MerchantTradeNo 帶空值或格式錯誤
+      throw new PaymentError("VALIDATION", "ECPay MerchantTradeNo 錯誤", "ecpay", {
+        rawCode: status,
+        rawMessage: "MerchantTradeNo 錯誤",
+        raw: parsed,
+      });
+    default:
+      throw new PaymentError("PROVIDER", `ECPay 查詢失敗 (TradeStatus=${status})`, "ecpay", {
+        rawCode: status,
+        raw: parsed,
+      });
+  }
+}
+
 function normalizeQueryInfo(parsed: Record<string, string>): NormalizedPaymentData {
   return {
     status: mapTradeStatus(parsed.TradeStatus),
@@ -323,15 +355,13 @@ function normalizeQueryInfo(parsed: Record<string, string>): NormalizedPaymentDa
   };
 }
 
-/** QueryTradeInfo TradeStatus: 0 = 已建立未付款, 1 = 已付款, 10200095 = 未建立/失敗. */
+/** QueryTradeInfo TradeStatus for a real order: 0 = 已建立未付款, 1 = 已付款. */
 function mapTradeStatus(value?: string) {
   switch (value) {
     case "1":
       return "paid";
     case "0":
       return "unpaid";
-    case "10200095":
-      return "failed";
     default:
       return value ?? "unknown";
   }
