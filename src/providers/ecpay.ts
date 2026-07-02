@@ -96,6 +96,15 @@ export function createEcpayProvider(config: ProviderRuntimeConfig): EcpayProvide
           "ecpay",
         );
       }
+      // ECPay caps MerchantTradeNo at 20 alphanumeric chars; a rejected order
+      // would also break the later getPayment/refund lookups (they resolve by it).
+      if (!/^[A-Za-z0-9]{1,20}$/.test(input.orderId)) {
+        throw new PaymentError(
+          "VALIDATION",
+          `ECPay MerchantTradeNo 需為 1-20 碼英數字（收到 "${input.orderId}"）`,
+          "ecpay",
+        );
+      }
 
       const params: Record<string, string> = {
         MerchantID: merchantId,

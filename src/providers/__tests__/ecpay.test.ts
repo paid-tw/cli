@@ -232,7 +232,7 @@ describe("ECPay createPayment (AioCheckOut)", () => {
       amount: 1000,
       currency: "TWD",
       method: "card",
-      orderId: "ORDER-C1",
+      orderId: "ORDERC1",
       itemDesc: "T-shirt",
       notifyUrl: "https://shop.test/ecpay/notify",
       returnUrl: "https://shop.test/thanks",
@@ -240,7 +240,7 @@ describe("ECPay createPayment (AioCheckOut)", () => {
 
     expect(form.action).toBe("https://ecpay.test/Cashier/AioCheckOut/V5");
     expect(form.method).toBe("POST");
-    expect(form.params.MerchantTradeNo).toBe("ORDER-C1");
+    expect(form.params.MerchantTradeNo).toBe("ORDERC1");
     expect(form.params.TotalAmount).toBe("1000");
     expect(form.params.ChoosePayment).toBe("Credit");
     expect(form.params.PaymentType).toBe("aio");
@@ -265,6 +265,16 @@ describe("ECPay createPayment (AioCheckOut)", () => {
     expect((await build("atm")).params.ChoosePayment).toBe("ATM");
     expect((await build("cvs")).params.ChoosePayment).toBe("CVS");
     expect((await build("linepay")).params.ChoosePayment).toBe("ALL");
+  });
+
+  it("rejects a MerchantTradeNo that is not 1-20 alphanumeric chars", async () => {
+    const provider = testProvider();
+    for (const orderId of ["ORDER-1", "order_1", "a".repeat(21), ""]) {
+      const err = await provider
+        .createPayment({ amount: 1, currency: "TWD", method: "card", orderId, notifyUrl: "u" })
+        .catch((e) => e);
+      expect((err as PaymentError).code).toBe("VALIDATION");
+    }
   });
 
   it("rejects a non-TWD currency and a missing notify-url", async () => {
