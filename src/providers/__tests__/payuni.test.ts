@@ -25,6 +25,17 @@ describe("PAYUNi getPayment — success shapes", () => {
     expect((data.raw as Record<string, unknown>).CardBank).toBe("807");
   });
 
+  it("treats a blank TradeAmt as unknown (undefined), not 0", async () => {
+    const payload = JSON.stringify({
+      Status: "SUCCESS",
+      Result: [{ TradeNo: "UNI9", MerTradeNo: "ORDER-9", TradeStatus: "9", TradeAmt: "" }],
+    });
+    server.use(http.post(QUERY_URL, () => HttpResponse.json(paySuccess(payload))));
+    const data = await testProvider().getPayment({ merTradeNo: "ORDER-9" });
+    expect(data.status).toBe("unpaid");
+    expect(data.amount).toBeUndefined();
+  });
+
   it("normalizes flattened `Result[0][Field]` querystring keys (LINE Pay)", async () => {
     server.use(http.post(QUERY_URL, () => HttpResponse.json(paySuccess(QUERY_FLAT_LINEPAY))));
 

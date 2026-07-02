@@ -312,7 +312,9 @@ function asString(input: unknown): string | undefined {
 }
 
 function asNumber(input: unknown): number | undefined {
-  if (input === null || input === undefined) return undefined;
+  // Guard "" too: Number("") is 0, which would misreport a blank TradeAmt (an
+  // unpaid/initialized order) as a zero-amount transaction rather than unknown.
+  if (input === null || input === undefined || input === "") return undefined;
   const num = Number(input);
   return Number.isNaN(num) ? undefined : num;
 }
