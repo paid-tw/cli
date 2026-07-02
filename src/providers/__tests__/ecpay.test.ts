@@ -200,6 +200,19 @@ describe("ECPay getPayment — recorded stage responses (field-exact)", () => {
     expect((err as PaymentError).rawCode).toBe("10200047");
   });
 
+  it("maps the doc's not-found TradeStatus 10200095 to NOT_FOUND too", async () => {
+    server.use(
+      http.post(QUERY_URL, () =>
+        HttpResponse.text(queryResponse({ MerchantTradeNo: "X", TradeStatus: "10200095" })),
+      ),
+    );
+    const err = await testProvider()
+      .getPayment({ merTradeNo: "X" })
+      .catch((e) => e);
+    expect((err as PaymentError).code).toBe("NOT_FOUND");
+    expect((err as PaymentError).rawCode).toBe("10200095");
+  });
+
   it("maps a real empty-MerchantTradeNo response (10200052) to VALIDATION", async () => {
     server.use(http.post(QUERY_URL, () => HttpResponse.text(QUERY_BAD_MERTRADENO)));
     const err = await testProvider()

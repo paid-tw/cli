@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { assertSupports, Capability } from "../core/capabilities.js";
-import { PaymentError } from "../core/errors.js";
+import { PaymentError, PaymentErrorCode } from "../core/errors.js";
 import {
   CreatePaymentRequest,
   GetPaymentRequest,
@@ -331,26 +331,24 @@ function verifyResponseMac(parsed: Record<string, string>, hashKey: string, hash
 function assertQueryOk(parsed: Record<string, string>): void {
   const status = parsed.TradeStatus;
   if (status === "0" || status === "1") return;
-  switch (status) {
-    case "10200047": // 查無交易資料 — order does not exist
-      throw new PaymentError("NOT_FOUND", "ECPay 查無交易資料", "ecpay", {
-        rawCode: status,
-        rawMessage: "查無交易資料",
-        raw: parsed,
-      });
-    case "10200052": // MerchantTradeNo 帶空值或格式錯誤
-      throw new PaymentError("VALIDATION", "ECPay MerchantTradeNo 錯誤", "ecpay", {
-        rawCode: status,
-        rawMessage: "MerchantTradeNo 錯誤",
-        raw: parsed,
-      });
-    default:
-      throw new PaymentError("PROVIDER", `ECPay 查詢失敗 (TradeStatus=${status})`, "ecpay", {
-        rawCode: status,
-        raw: parsed,
-      });
-  }
+  const mapped = status ? QUERY_STATUS_ERRORS[status] : undefined;
+  throw new PaymentError(
+    mapped?.code ?? "PROVIDER",
+    `ECPay ${mapped?.message ?? `查詢失敗 (TradeStatus=${status})`}`,
+    "ecpay",
+    { rawCode: status, rawMessage: mapped?.message, raw: parsed },
+  );
 }
+
+/**
+ * ECPay QueryTradeInfo error TradeStatus codes → normalized PaymentError code.
+ * Extend as new codes are observed; anything unmapped falls through to PROVIDER.
+ */
+const QUERY_STATUS_ERRORS: Record<string, { code: PaymentErrorCode; message: string }> = {
+  "10200047": { code: "NOT_FOUND", message: "查無交易資料" },
+  "10200095": { code: "NOT_FOUND", message: "訂單未成立" },
+  "10200052": { code: "VALIDATION", message: "MerchantTradeNo 錯誤" },
+};
 
 function normalizeQueryInfo(parsed: Record<string, string>): NormalizedPaymentData {
   return {
