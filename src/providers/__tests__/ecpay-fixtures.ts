@@ -8,14 +8,23 @@
  *     `code|message` string) even for a missing order.
  *   - A non-existent order returns TradeStatus=10200047 (not the 10200095 the
  *     doc summary implies); an empty MerchantTradeNo returns 10200052.
- *   - The payload carries a PaymentTypeChargeFee field and is ordered A→Z.
+ *   - The payload carries PaymentTypeChargeFee + StoreID + CustomField1-4 and is
+ *     ordered A→Z; PaymentDate/TradeDate use a literal space (`yyyy/MM/dd HH:mm:ss`).
  *
- * A paid-order success body still needs a completed card payment on stage to
- * capture; until then the success-path tests use a constructed field set signed
- * with the same key (see ecpay-server.ts `queryResponse`).
+ * QUERY_PAID was captured by driving a real card payment on stage (test card
+ * 4311-9522-2222-2222, 3D OTP 1234) then querying the settled order.
  *
  * Re-record: `ECPAY_LIVE=1 PAID_DEBUG=1 npm test -- ecpay-live` (see live test).
  */
+
+/** A settled credit-card order → TradeStatus 1 (paid). Recorded post-payment. */
+export const QUERY_PAID =
+  "CustomField1=&CustomField2=&CustomField3=&CustomField4=&HandlingCharge=30" +
+  "&ItemName=paidcli test&MerchantID=3002607&MerchantTradeNo=paidcli1782998612529" +
+  "&PaymentDate=2026/07/02 21:27:45&PaymentType=Credit_CreditCard&PaymentTypeChargeFee=31" +
+  "&StoreID=&TradeAmt=1234&TradeDate=2026/07/02 21:24:11&TradeNo=2607022124117236" +
+  "&TradeStatus=1" +
+  "&CheckMacValue=63850FCB511519F566886EB7D34B4DC449537F7549625DA5BF6FE0BA61F7ACE9";
 
 /** Unknown (well-formed) MerchantTradeNo → TradeStatus 10200047 (查無交易資料). */
 export const QUERY_NOT_FOUND =

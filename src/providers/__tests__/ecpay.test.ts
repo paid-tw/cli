@@ -12,7 +12,7 @@ import {
   server,
   testProvider,
 } from "./ecpay-server.js";
-import { QUERY_BAD_MERTRADENO, QUERY_NOT_FOUND } from "./ecpay-fixtures.js";
+import { QUERY_BAD_MERTRADENO, QUERY_NOT_FOUND, QUERY_PAID } from "./ecpay-fixtures.js";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
@@ -158,6 +158,17 @@ describe("ECPay getPayment — recorded stage responses (field-exact)", () => {
   // These bodies were recorded live from stage merchant 3002607; their real
   // CheckMacValue must verify (proving the whole sign+verify path against real
   // data) before the error TradeStatus is mapped.
+  it("normalizes a real settled credit-card order (TradeStatus 1)", async () => {
+    server.use(http.post(QUERY_URL, () => HttpResponse.text(QUERY_PAID)));
+    const data = await testProvider().getPayment({ merTradeNo: "paidcli1782998612529" });
+    expect(data.status).toBe("paid");
+    expect(data.method).toBe("card");
+    expect(data.amount).toBe(1234);
+    expect(data.tradeNo).toBe("2607022124117236");
+    expect(data.merTradeNo).toBe("paidcli1782998612529");
+    expect(data.paidAt).toBe("2026/07/02 21:27:45");
+  });
+
   it("maps a real not-found response (TradeStatus 10200047) to NOT_FOUND", async () => {
     server.use(http.post(QUERY_URL, () => HttpResponse.text(QUERY_NOT_FOUND)));
     const err = await testProvider()
