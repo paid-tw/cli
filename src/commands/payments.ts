@@ -3,7 +3,7 @@ import { createPayment, getPayment, refundPayment } from "../core/payments.js";
 import { PaymentMethod, ProviderName } from "../core/schema.js";
 import { resolveProviderName } from "../core/config.js";
 import { formatPaymentOutput } from "../core/format.js";
-import { success, error, formatOutput } from "../core/output.js";
+import { success, formatOutput, errorFromException } from "../core/output.js";
 
 export function registerPaymentsCommands(program: Command) {
   const payments = program.command("payments").description("交易建立、查詢、退款");
@@ -50,12 +50,9 @@ export function registerPaymentsCommands(program: Command) {
         });
         console.log(formatOutput(response, opts.json ?? false));
       } catch (err) {
-        const response = error(
-          "PAYMENT_CREATE_FAILED",
-          err instanceof Error ? err.message : String(err),
-          err,
-          { command: "payments create" },
-        );
+        const response = errorFromException("PAYMENT_CREATE_FAILED", err, {
+          command: "payments create",
+        });
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
       }
@@ -110,12 +107,9 @@ export function registerPaymentsCommands(program: Command) {
         }
       } catch (err) {
         const useJson = opts.json || opts.format === "json";
-        const response = error(
-          "PAYMENT_GET_FAILED",
-          err instanceof Error ? err.message : String(err),
-          err,
-          { command: "payments get" },
-        );
+        const response = errorFromException("PAYMENT_GET_FAILED", err, {
+          command: "payments get",
+        });
         console.error(formatOutput(response, useJson));
         process.exit(1);
       }
@@ -153,12 +147,9 @@ export function registerPaymentsCommands(program: Command) {
         });
         console.log(formatOutput(response, opts.json ?? false));
       } catch (err) {
-        const response = error(
-          "PAYMENT_REFUND_FAILED",
-          err instanceof Error ? err.message : String(err),
-          err,
-          { command: "payments refund" },
-        );
+        const response = errorFromException("PAYMENT_REFUND_FAILED", err, {
+          command: "payments refund",
+        });
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
       }

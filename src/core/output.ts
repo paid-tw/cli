@@ -2,6 +2,7 @@
  * Unified output format for all CLI commands
  * Agent-friendly structured responses
  */
+import { isPaymentError } from "./errors.js";
 
 export interface OutputMetadata {
   timestamp: string;
@@ -62,6 +63,34 @@ export function error(
       ...metadata,
     },
   };
+}
+
+/**
+ * Build an error response from a caught exception. For a normalized
+ * {@link PaymentError} it surfaces the stable `code` (NOT_FOUND/AUTH/...) plus
+ * the gateway's `rawCode`/`rawMessage`/`provider` in `details` — but never the
+ * full `raw` payload, which would dump the whole gateway response into output.
+ * The top-level `error.code` stays the command-scoped constant for stability.
+ */
+export function errorFromException(
+  fallbackCode: string,
+  err: unknown,
+  metadata?: Partial<OutputMetadata>,
+): ErrorResponse {
+  if (isPaymentError(err)) {
+    return error(
+      fallbackCode,
+      err.message,
+      {
+        code: err.code,
+        provider: err.provider,
+        rawCode: err.rawCode,
+        rawMessage: err.rawMessage,
+      },
+      metadata,
+    );
+  }
+  return error(fallbackCode, err instanceof Error ? err.message : String(err), undefined, metadata);
 }
 
 /**

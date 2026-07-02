@@ -3,7 +3,7 @@ import { listProviders } from "../core/providers.js";
 import { resolveProviderName } from "../core/config.js";
 import { getPayment } from "../core/payments.js";
 import { ProviderName } from "../core/schema.js";
-import { success, error, formatOutput } from "../core/output.js";
+import { success, error, formatOutput, errorFromException } from "../core/output.js";
 
 export function registerProviderCommands(program: Command) {
   const providers = program.command("providers").description("支付服務清單");
@@ -72,12 +72,9 @@ export function registerProviderCommands(program: Command) {
         });
         console.log(formatOutput(response, opts.json ?? false));
       } catch (err) {
-        const response = error(
-          "PROVIDERS_PING_FAILED",
-          err instanceof Error ? err.message : String(err),
-          err,
-          { command: "providers ping" },
-        );
+        const response = errorFromException("PROVIDERS_PING_FAILED", err, {
+          command: "providers ping",
+        });
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
       }
