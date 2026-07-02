@@ -168,14 +168,68 @@ describe("ECPay getPayment — guards (no network)", () => {
   });
 });
 
-describe("ECPay capabilities", () => {
-  it("declares only GET_PAYMENT for now", async () => {
+describe("ECPay createPayment (AioCheckOut)", () => {
+  it("builds a signed redirect form with mapped params", async () => {
+    const form = await testProvider().createPayment({
+      amount: 1000,
+      currency: "TWD",
+      method: "card",
+      orderId: "ORDER-C1",
+      itemDesc: "T-shirt",
+      notifyUrl: "https://shop.test/ecpay/notify",
+      returnUrl: "https://shop.test/thanks",
+    });
+
+    expect(form.action).toBe("https://ecpay.test/Cashier/AioCheckOut/V5");
+    expect(form.method).toBe("POST");
+    expect(form.params.MerchantTradeNo).toBe("ORDER-C1");
+    expect(form.params.TotalAmount).toBe("1000");
+    expect(form.params.ChoosePayment).toBe("Credit");
+    expect(form.params.PaymentType).toBe("aio");
+    expect(form.params.EncryptType).toBe("1");
+    expect(form.params.ReturnURL).toBe("https://shop.test/ecpay/notify");
+    expect(form.params.OrderResultURL).toBe("https://shop.test/thanks");
+    expect(form.params.MerchantTradeDate).toMatch(/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/);
+    // The stamped CheckMacValue must verify over the rest of the params.
+    expect(form.params.CheckMacValue).toBe(computeCheckMacValue(form.params, HASH_KEY, HASH_IV));
+  });
+
+  it("maps payment methods to ChoosePayment (atm/cvs/unknown->ALL)", async () => {
     const provider = testProvider();
-    expect(supports(provider.capabilities, "GET_PAYMENT")).toBe(true);
-    expect(supports(provider.capabilities, "CREATE_PAYMENT")).toBe(false);
-    const err = await provider
+    const build = (method: "card" | "atm" | "cvs" | "linepay") =>
+      provider.createPayment({
+        amount: 1,
+        currency: "TWD",
+        method,
+        orderId: "o",
+        notifyUrl: "https://shop.test/n",
+      });
+    expect((await build("atm")).params.ChoosePayment).toBe("ATM");
+    expect((await build("cvs")).params.ChoosePayment).toBe("CVS");
+    expect((await build("linepay")).params.ChoosePayment).toBe("ALL");
+  });
+
+  it("rejects a non-TWD currency and a missing notify-url", async () => {
+    const provider = testProvider();
+    const fx = await provider
+      .createPayment({ amount: 1, currency: "USD", method: "card", orderId: "o", notifyUrl: "u" })
+      .catch((e) => e);
+    expect((fx as PaymentError).code).toBe("VALIDATION");
+
+    const noNotify = await provider
       .createPayment({ amount: 1, currency: "TWD", method: "card", orderId: "o" })
       .catch((e) => e);
+    expect((noNotify as PaymentError).code).toBe("VALIDATION");
+  });
+});
+
+describe("ECPay capabilities", () => {
+  it("declares CREATE_PAYMENT + GET_PAYMENT; refund is UNSUPPORTED", async () => {
+    const provider = testProvider();
+    expect(supports(provider.capabilities, "CREATE_PAYMENT")).toBe(true);
+    expect(supports(provider.capabilities, "GET_PAYMENT")).toBe(true);
+    expect(supports(provider.capabilities, "REFUND_PAYMENT")).toBe(false);
+    const err = await provider.refundPayment({ orderId: "o" }).catch((e) => e);
     expect((err as PaymentError).code).toBe("UNSUPPORTED");
   });
 });

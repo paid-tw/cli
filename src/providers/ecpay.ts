@@ -1,23 +1,51 @@
 import crypto from "node:crypto";
 import { assertSupports, Capability } from "../core/capabilities.js";
 import { PaymentError } from "../core/errors.js";
-import { GetPaymentRequest, PaymentProvider, ProviderRuntimeConfig } from "../core/providers.js";
-import { NormalizedPaymentData } from "../core/schema.js";
+import {
+  CreatePaymentRequest,
+  GetPaymentRequest,
+  PaymentProvider,
+  ProviderRuntimeConfig,
+} from "../core/providers.js";
+import { NormalizedPaymentData, PaymentMethod } from "../core/schema.js";
 
 const ECPAY_ORIGINS = {
   sandbox: "https://payment-stage.ecpay.com.tw",
   production: "https://payment.ecpay.com.tw",
 } as const;
 
-const CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>(["GET_PAYMENT"]);
+const CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
+  "CREATE_PAYMENT",
+  "GET_PAYMENT",
+]);
+
+/**
+ * ECPay's AioCheckOut is a browser-redirect flow, not a server-to-server call:
+ * the merchant auto-submits this form to hand the buyer off to ECPay's cashier.
+ * createPayment returns the endpoint + signed params rather than a settled txn.
+ */
+export interface EcpayCheckoutForm {
+  action: string;
+  method: "POST";
+  params: Record<string, string>;
+}
+
+/**
+ * ECPay narrows the contract's `Promise<unknown>` create return to its concrete
+ * shape. It's still assignable to {@link PaymentProvider} (covariant returns),
+ * so the factory registry accepts it unchanged.
+ */
+export interface EcpayProvider extends PaymentProvider {
+  createPayment(input: CreatePaymentRequest): Promise<EcpayCheckoutForm>;
+}
 
 /**
  * ECPay (綠界科技) All-in-One adapter. Credentials + host live on the instance;
  * `baseUrl` (or the sandbox flag) selects the gateway origin so tests can point
- * it at an MSW mock. Trade-query (QueryTradeInfo/V5) is implemented; create and
- * refund are declared unsupported for now.
+ * it at an MSW mock. AioCheckOut (create) and QueryTradeInfo/V5 (get) are
+ * implemented; refund (DoAction) is declared unsupported for now.
  */
-export function createEcpayProvider(config: ProviderRuntimeConfig): PaymentProvider {
+export function createEcpayProvider(config: ProviderRuntimeConfig): EcpayProvider {
   const origin = (
     config.baseUrl ?? (config.sandbox ? ECPAY_ORIGINS.sandbox : ECPAY_ORIGINS.production)
   ).replace(/\/+$/, "");
@@ -26,9 +54,39 @@ export function createEcpayProvider(config: ProviderRuntimeConfig): PaymentProvi
     name: "ecpay",
     capabilities: CAPABILITIES,
 
-    async createPayment() {
+    async createPayment(input: CreatePaymentRequest): Promise<EcpayCheckoutForm> {
       assertSupports("ecpay", CAPABILITIES, "CREATE_PAYMENT");
-      throw new PaymentError("UNSUPPORTED", "ECPay createPayment 尚未實作", "ecpay");
+      const { merchantId, hashKey, hashIv } = requireCredentials(config);
+      if (input.currency && input.currency !== "TWD") {
+        throw new PaymentError("VALIDATION", "ECPay AioCheckOut 僅支援 TWD", "ecpay");
+      }
+      if (!input.notifyUrl) {
+        throw new PaymentError(
+          "VALIDATION",
+          "ECPay 需要 notify-url 作為 ReturnURL（付款結果通知）",
+          "ecpay",
+        );
+      }
+
+      const params: Record<string, string> = {
+        MerchantID: merchantId,
+        MerchantTradeNo: input.orderId,
+        MerchantTradeDate: taipeiTradeDate(),
+        PaymentType: "aio",
+        TotalAmount: String(Math.round(input.amount)),
+        TradeDesc: input.itemDesc ?? "paid",
+        ItemName: input.itemDesc ?? input.orderId,
+        ReturnURL: input.notifyUrl,
+        ChoosePayment: mapChoosePayment(input.method),
+        EncryptType: "1",
+      };
+      if (input.returnUrl) {
+        params.OrderResultURL = input.returnUrl;
+        params.ClientBackURL = input.returnUrl;
+      }
+      params.CheckMacValue = computeCheckMacValue(params, hashKey, hashIv);
+
+      return { action: `${origin}/Cashier/AioCheckOut/V5`, method: "POST", params };
     },
 
     async refundPayment() {
@@ -121,6 +179,36 @@ export function computeCheckMacValue(
   const raw = `HashKey=${hashKey}&${sorted}&HashIV=${hashIv}`;
   const encoded = dotNetUrlEncode(raw);
   return crypto.createHash("sha256").update(encoded).digest("hex").toUpperCase();
+}
+
+/** ECPay's ChoosePayment for a generic method; anything else offers all methods. */
+function mapChoosePayment(method?: PaymentMethod): string {
+  switch (method) {
+    case "card":
+      return "Credit";
+    case "atm":
+      return "ATM";
+    case "cvs":
+      return "CVS";
+    default:
+      return "ALL";
+  }
+}
+
+/** MerchantTradeDate in ECPay's `yyyy/MM/dd HH:mm:ss`, in Asia/Taipei. */
+function taipeiTradeDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}/${get("month")}/${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
 /** Mirror .NET HttpUtility.UrlEncode: encode, lowercase, then restore ECPay's char set. */
