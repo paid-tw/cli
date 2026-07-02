@@ -40,6 +40,28 @@ describe("ECPay CheckMacValue", () => {
     );
   });
 
+  // Second golden, independently verified against the live stage cashier: an
+  // ItemName with `'` and `~` (which .NET/PHP encode to %27/%7E but
+  // encodeURIComponent leaves literal). ECPay accepted exactly this MAC; the old
+  // encoder produced "CheckMacValue Error". Guards the '/~ encoding path.
+  it("encodes ' and ~ like ECPay (stage-verified worked example)", () => {
+    const params = {
+      MerchantID: "3002607",
+      MerchantTradeNo: "probeenc001",
+      MerchantTradeDate: "2026/07/02 10:00:00",
+      PaymentType: "aio",
+      TotalAmount: "100",
+      TradeDesc: "probe",
+      ItemName: "Apple's ~deal",
+      ReturnURL: "https://example.com/n",
+      ChoosePayment: "Credit",
+      EncryptType: "1",
+    };
+    expect(computeCheckMacValue(params, "pwFHCqoQZGmho4w6", "EkRm7iFT261dpevs")).toBe(
+      "D1CAD631D46964035334D5A66DEEB46A11DBB737D9FAABF8C7DEB9D864D2AFB2",
+    );
+  });
+
   it("ignores a pre-existing CheckMacValue key in the input", () => {
     const base = { MerchantID: "3002607", TradeAmt: "100" };
     const withMac = { ...base, CheckMacValue: "STALE" };

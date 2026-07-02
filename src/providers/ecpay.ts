@@ -287,18 +287,18 @@ function taipeiTradeDate(now = new Date()): string {
   return `${get("year")}/${get("month")}/${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
-/** Mirror .NET HttpUtility.UrlEncode: encode, lowercase, then restore ECPay's char set. */
+/**
+ * Mirror ECPay's .NET/PHP URL-encode. encodeURIComponent already leaves
+ * `- _ . ! * ( )` literal (which ECPay's encoder also keeps) and uppercases its
+ * %XX; ECPay additionally percent-encodes `'`→%27 and `~`→%7E (encodeURIComponent
+ * leaves those literal), uses `+` for space, and lowercases the whole string.
+ */
 function dotNetUrlEncode(value: string): string {
   return encodeURIComponent(value)
+    .replace(/'/g, "%27")
+    .replace(/~/g, "%7E")
     .toLowerCase()
-    .replace(/%20/g, "+")
-    .replace(/%2d/g, "-")
-    .replace(/%5f/g, "_")
-    .replace(/%2e/g, ".")
-    .replace(/%21/g, "!")
-    .replace(/%2a/g, "*")
-    .replace(/%28/g, "(")
-    .replace(/%29/g, ")");
+    .replace(/%20/g, "+");
 }
 
 function verifyResponseMac(parsed: Record<string, string>, hashKey: string, hashIv: string) {
