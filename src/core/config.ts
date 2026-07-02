@@ -103,11 +103,13 @@ export async function resolveProviderConfig(
   runtime?: RuntimeEnv,
 ): Promise<ProviderConfig> {
   const envPrefix = provider.toUpperCase();
+  const rawSandbox = process.env[`${envPrefix}_SANDBOX`];
   const env: ProviderConfig = {
     merchantId: process.env[`${envPrefix}_MERCHANT_ID`],
     hashKey: process.env[`${envPrefix}_HASH_KEY`],
     hashIv: process.env[`${envPrefix}_HASH_IV`],
-    sandbox: process.env[`${envPrefix}_SANDBOX`] === "true",
+    // undefined (not false) when the var is unset, so config.toml can still win.
+    sandbox: rawSandbox === undefined ? undefined : rawSandbox === "true",
   };
 
   const fileConfig = await getConfig();
@@ -117,10 +119,25 @@ export async function resolveProviderConfig(
   const runtimeSandbox =
     runtime?.sandbox !== undefined ? runtime.sandbox : envMode !== undefined ? envMode : undefined;
 
+  return mergeProviderConfig(fileProvider, env, flags, runtimeSandbox);
+}
+
+/**
+ * Merge config sources by precedence (CLI flags &gt; env &gt; config.toml). Each layer
+ * is stripped of `undefined` before spreading so an unset env var never clobbers
+ * a value from config.toml; `sandbox` is resolved with `??` so an explicit
+ * `false` still overrides lower layers but an absent one falls through.
+ */
+export function mergeProviderConfig(
+  fileProvider: ProviderConfig,
+  env: ProviderConfig,
+  flags: ProviderConfig | undefined,
+  runtimeSandbox: boolean | undefined,
+): ProviderConfig {
   return {
-    ...fileProvider,
-    ...env,
-    ...flags,
+    ...cleanUndefined(fileProvider),
+    ...cleanUndefined(env),
+    ...cleanUndefined(flags ?? {}),
     sandbox: runtimeSandbox ?? flags?.sandbox ?? env.sandbox ?? fileProvider.sandbox,
   };
 }
