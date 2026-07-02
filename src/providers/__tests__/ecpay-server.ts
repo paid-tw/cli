@@ -13,6 +13,7 @@ export const HASH_KEY = "pwFHCqoQZGmho4w6";
 export const HASH_IV = "EkRm7iFT261dpevs";
 
 export const QUERY_URL = `${BASE}/Cashier/QueryTradeInfo/V5`;
+export const DOACTION_URL = `${BASE}/CreditDetail/DoAction`;
 
 export const server = setupServer();
 

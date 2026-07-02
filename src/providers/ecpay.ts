@@ -6,6 +6,7 @@ import {
   GetPaymentRequest,
   PaymentProvider,
   ProviderRuntimeConfig,
+  RefundPaymentRequest,
 } from "../core/providers.js";
 import { NormalizedPaymentData, PaymentMethod } from "../core/schema.js";
 
@@ -17,7 +18,17 @@ const ECPAY_ORIGINS = {
 const CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
   "CREATE_PAYMENT",
   "GET_PAYMENT",
+  "REFUND_PAYMENT",
 ]);
+
+/** Outcome of a DoAction credit-card refund (Action=R). */
+export interface EcpayRefundResult {
+  tradeNo: string;
+  rtnCode: string;
+  rtnMsg: string;
+  amount: number;
+  raw: Record<string, string>;
+}
 
 /**
  * ECPay's AioCheckOut is a browser-redirect flow, not a server-to-server call:
@@ -31,24 +42,41 @@ export interface EcpayCheckoutForm {
 }
 
 /**
- * ECPay narrows the contract's `Promise<unknown>` create return to its concrete
- * shape. It's still assignable to {@link PaymentProvider} (covariant returns),
- * so the factory registry accepts it unchanged.
+ * ECPay narrows the contract's `Promise<unknown>` create/refund returns to its
+ * concrete shapes. It's still assignable to {@link PaymentProvider} (covariant
+ * returns), so the factory registry accepts it unchanged.
  */
 export interface EcpayProvider extends PaymentProvider {
   createPayment(input: CreatePaymentRequest): Promise<EcpayCheckoutForm>;
+  refundPayment(input: RefundPaymentRequest): Promise<EcpayRefundResult>;
 }
 
 /**
  * ECPay (綠界科技) All-in-One adapter. Credentials + host live on the instance;
  * `baseUrl` (or the sandbox flag) selects the gateway origin so tests can point
- * it at an MSW mock. AioCheckOut (create) and QueryTradeInfo/V5 (get) are
- * implemented; refund (DoAction) is declared unsupported for now.
+ * it at an MSW mock. AioCheckOut (create), QueryTradeInfo/V5 (get) and DoAction
+ * credit-card refund are implemented.
  */
 export function createEcpayProvider(config: ProviderRuntimeConfig): EcpayProvider {
   const origin = (
     config.baseUrl ?? (config.sandbox ? ECPAY_ORIGINS.sandbox : ECPAY_ORIGINS.production)
   ).replace(/\/+$/, "");
+
+  /** POST QueryTradeInfo/V5 and return the verified, parsed field set. */
+  const queryTradeInfo = async (merTradeNo: string): Promise<Record<string, string>> => {
+    const { merchantId, hashKey, hashIv } = requireCredentials(config);
+    const params: Record<string, string> = {
+      MerchantID: merchantId,
+      MerchantTradeNo: merTradeNo,
+      TimeStamp: String(Math.floor(Date.now() / 1000)),
+    };
+    params.CheckMacValue = computeCheckMacValue(params, hashKey, hashIv);
+
+    const text = await postForm(`${origin}/Cashier/QueryTradeInfo/V5`, params, "QueryTradeInfo");
+    const parsed = Object.fromEntries(new URLSearchParams(text).entries());
+    verifyResponseMac(parsed, hashKey, hashIv);
+    return parsed;
+  };
 
   return {
     name: "ecpay",
@@ -89,65 +117,112 @@ export function createEcpayProvider(config: ProviderRuntimeConfig): EcpayProvide
       return { action: `${origin}/Cashier/AioCheckOut/V5`, method: "POST", params };
     },
 
-    async refundPayment() {
+    async refundPayment(input: RefundPaymentRequest): Promise<EcpayRefundResult> {
       assertSupports("ecpay", CAPABILITIES, "REFUND_PAYMENT");
-      throw new PaymentError("UNSUPPORTED", "ECPay refundPayment 尚未實作", "ecpay");
-    },
-
-    async getPayment(input: GetPaymentRequest): Promise<NormalizedPaymentData> {
-      assertSupports("ecpay", CAPABILITIES, "GET_PAYMENT");
       const { merchantId, hashKey, hashIv } = requireCredentials(config);
-      if (!input.merTradeNo) {
-        throw new PaymentError("VALIDATION", "ECPay 查詢需要提供 MerchantTradeNo（--id）", "ecpay");
+
+      // DoAction needs ECPay's TradeNo + the paid amount; resolve them from the
+      // order first. ECPay's DoAction refund is credit-card only.
+      const info = await queryTradeInfo(input.orderId);
+      const tradeNo = info.TradeNo;
+      if (!tradeNo) {
+        throw new PaymentError("NOT_FOUND", `ECPay 查無訂單 ${input.orderId} 的 TradeNo`, "ecpay", {
+          raw: info,
+        });
+      }
+      if (info.PaymentType && !info.PaymentType.startsWith("Credit")) {
+        throw new PaymentError("VALIDATION", "ECPay 退款（DoAction）僅支援信用卡", "ecpay", {
+          raw: info,
+        });
+      }
+      const amount = input.amount ?? asNumber(info.TradeAmt);
+      if (amount === undefined) {
+        throw new PaymentError("VALIDATION", "ECPay 退款需要金額（--amount）", "ecpay");
       }
 
       const params: Record<string, string> = {
         MerchantID: merchantId,
-        MerchantTradeNo: input.merTradeNo,
-        TimeStamp: String(Math.floor(Date.now() / 1000)),
+        MerchantTradeNo: input.orderId,
+        TradeNo: tradeNo,
+        Action: "R",
+        TotalAmount: String(Math.round(amount)),
       };
       params.CheckMacValue = computeCheckMacValue(params, hashKey, hashIv);
 
-      let response: Response;
-      try {
-        response = await fetch(`${origin}/Cashier/QueryTradeInfo/V5`, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams(params),
-        });
-      } catch (err) {
-        throw new PaymentError("NETWORK", "ECPay QueryTradeInfo 連線失敗", "ecpay", { cause: err });
-      }
-
-      if (!response.ok) {
-        throw new PaymentError(
-          "PROVIDER",
-          `ECPay QueryTradeInfo failed: ${response.status} ${response.statusText}`,
-          "ecpay",
-          { rawCode: String(response.status) },
-        );
-      }
-
-      const text = await response.text();
-      if (process.env.PAID_DEBUG === "1") {
-        console.error("[ecpay] query response:", text);
-      }
-
-      // Some ECPay endpoints answer errors as `0|Message` instead of a field set.
-      const pipe = /^(\d+)\|(.+)$/.exec(text.trim());
-      if (pipe) {
-        throw new PaymentError("PROVIDER", `${pipe[1]}: ${pipe[2]}`, "ecpay", {
-          rawCode: pipe[1],
-          rawMessage: pipe[2],
-          raw: text,
-        });
-      }
-
+      const text = await postForm(`${origin}/CreditDetail/DoAction`, params, "DoAction");
       const parsed = Object.fromEntries(new URLSearchParams(text).entries());
       verifyResponseMac(parsed, hashKey, hashIv);
-      return normalizeQueryInfo(parsed);
+
+      const rtnCode = parsed.RtnCode ?? "";
+      if (rtnCode !== "1") {
+        throw new PaymentError(
+          "PROVIDER",
+          `ECPay DoAction 失敗: ${parsed.RtnMsg ?? rtnCode}`,
+          "ecpay",
+          { rawCode: rtnCode, rawMessage: parsed.RtnMsg, raw: parsed },
+        );
+      }
+      return {
+        tradeNo,
+        rtnCode,
+        rtnMsg: parsed.RtnMsg ?? "",
+        amount: Math.round(amount),
+        raw: parsed,
+      };
+    },
+
+    async getPayment(input: GetPaymentRequest): Promise<NormalizedPaymentData> {
+      assertSupports("ecpay", CAPABILITIES, "GET_PAYMENT");
+      if (!input.merTradeNo) {
+        throw new PaymentError("VALIDATION", "ECPay 查詢需要提供 MerchantTradeNo（--id）", "ecpay");
+      }
+      return normalizeQueryInfo(await queryTradeInfo(input.merTradeNo));
     },
   };
+}
+
+/** POST form-urlencoded params; normalize transport/HTTP/`code|message` errors. */
+async function postForm(
+  url: string,
+  params: Record<string, string>,
+  label: string,
+): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(params),
+    });
+  } catch (err) {
+    throw new PaymentError("NETWORK", `ECPay ${label} 連線失敗`, "ecpay", { cause: err });
+  }
+
+  if (!response.ok) {
+    throw new PaymentError(
+      "PROVIDER",
+      `ECPay ${label} failed: ${response.status} ${response.statusText}`,
+      "ecpay",
+      { rawCode: String(response.status) },
+    );
+  }
+
+  const text = await response.text();
+  if (process.env.PAID_DEBUG === "1") {
+    console.error(`[ecpay] ${label} response:`, text);
+  }
+
+  // Some ECPay endpoints answer errors as `0|Message` instead of a field set.
+  const pipe = /^(\d+)\|(.+)$/.exec(text.trim());
+  if (pipe) {
+    throw new PaymentError("PROVIDER", `${pipe[1]}: ${pipe[2]}`, "ecpay", {
+      rawCode: pipe[1],
+      rawMessage: pipe[2],
+      raw: text,
+    });
+  }
+
+  return text;
 }
 
 function requireCredentials(config: ProviderRuntimeConfig) {

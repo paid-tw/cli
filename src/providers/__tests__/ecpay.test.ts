@@ -4,6 +4,7 @@ import { computeCheckMacValue } from "../ecpay.js";
 import { PaymentError } from "../../core/errors.js";
 import { supports } from "../../core/capabilities.js";
 import {
+  DOACTION_URL,
   HASH_IV,
   HASH_KEY,
   queryResponse,
@@ -223,13 +224,94 @@ describe("ECPay createPayment (AioCheckOut)", () => {
   });
 });
 
+describe("ECPay refundPayment (DoAction)", () => {
+  // Resolve TradeNo via QueryTradeInfo, then DoAction Action=R.
+  const stubQuery = (fields: Record<string, string>) =>
+    http.post(QUERY_URL, () => HttpResponse.text(queryResponse(fields)));
+
+  it("resolves TradeNo then issues a full-amount credit refund", async () => {
+    let doAction: Record<string, string> | undefined;
+    server.use(
+      stubQuery({
+        MerchantTradeNo: "ORDER-R1",
+        TradeNo: "2303120001",
+        TradeAmt: "30000",
+        PaymentType: "Credit_CreditCard",
+        TradeStatus: "1",
+      }),
+      http.post(DOACTION_URL, async ({ request }) => {
+        doAction = Object.fromEntries(new URLSearchParams(await request.text()).entries());
+        return HttpResponse.text(
+          queryResponse({
+            MerchantID: "3002607",
+            MerchantTradeNo: "ORDER-R1",
+            TradeNo: "2303120001",
+            RtnCode: "1",
+            RtnMsg: "交易成功",
+          }),
+        );
+      }),
+    );
+
+    const result = await testProvider().refundPayment({ orderId: "ORDER-R1" });
+
+    expect(result.rtnCode).toBe("1");
+    expect(result.tradeNo).toBe("2303120001");
+    expect(result.amount).toBe(30000); // full refund defaults to the paid amount
+    expect(doAction?.Action).toBe("R");
+    expect(doAction?.TradeNo).toBe("2303120001");
+    expect(doAction?.CheckMacValue).toBe(computeCheckMacValue(doAction!, HASH_KEY, HASH_IV));
+  });
+
+  it("honors a partial --amount override", async () => {
+    let doAction: Record<string, string> | undefined;
+    server.use(
+      stubQuery({ TradeNo: "T2", TradeAmt: "30000", PaymentType: "Credit_CreditCard" }),
+      http.post(DOACTION_URL, async ({ request }) => {
+        doAction = Object.fromEntries(new URLSearchParams(await request.text()).entries());
+        return HttpResponse.text(queryResponse({ TradeNo: "T2", RtnCode: "1", RtnMsg: "OK" }));
+      }),
+    );
+    await testProvider().refundPayment({ orderId: "ORDER-R2", amount: 100 });
+    expect(doAction?.TotalAmount).toBe("100");
+  });
+
+  it("maps a DoAction RtnCode != 1 to a PROVIDER error", async () => {
+    server.use(
+      stubQuery({ TradeNo: "T3", TradeAmt: "100", PaymentType: "Credit_CreditCard" }),
+      http.post(DOACTION_URL, () =>
+        HttpResponse.text(queryResponse({ TradeNo: "T3", RtnCode: "10200047", RtnMsg: "已退款" })),
+      ),
+    );
+    const err = await testProvider()
+      .refundPayment({ orderId: "ORDER-R3" })
+      .catch((e) => e);
+    expect((err as PaymentError).code).toBe("PROVIDER");
+    expect((err as PaymentError).rawCode).toBe("10200047");
+  });
+
+  it("rejects a non-credit-card order before calling DoAction", async () => {
+    server.use(stubQuery({ TradeNo: "T4", TradeAmt: "100", PaymentType: "ATM_TAISHIN" }));
+    const err = await testProvider()
+      .refundPayment({ orderId: "ORDER-R4" })
+      .catch((e) => e);
+    expect((err as PaymentError).code).toBe("VALIDATION");
+  });
+
+  it("fails with NOT_FOUND when the order has no TradeNo", async () => {
+    server.use(stubQuery({ MerchantTradeNo: "ORDER-R5", TradeStatus: "10200095" }));
+    const err = await testProvider()
+      .refundPayment({ orderId: "ORDER-R5" })
+      .catch((e) => e);
+    expect((err as PaymentError).code).toBe("NOT_FOUND");
+  });
+});
+
 describe("ECPay capabilities", () => {
-  it("declares CREATE_PAYMENT + GET_PAYMENT; refund is UNSUPPORTED", async () => {
+  it("declares CREATE_PAYMENT + GET_PAYMENT + REFUND_PAYMENT", () => {
     const provider = testProvider();
     expect(supports(provider.capabilities, "CREATE_PAYMENT")).toBe(true);
     expect(supports(provider.capabilities, "GET_PAYMENT")).toBe(true);
-    expect(supports(provider.capabilities, "REFUND_PAYMENT")).toBe(false);
-    const err = await provider.refundPayment({ orderId: "o" }).catch((e) => e);
-    expect((err as PaymentError).code).toBe("UNSUPPORTED");
+    expect(supports(provider.capabilities, "REFUND_PAYMENT")).toBe(true);
   });
 });
