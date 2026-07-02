@@ -1,5 +1,10 @@
 import { Command } from "commander";
-import { getConfig, setDefaultProvider, setOutputFormat, setProviderConfig } from "../core/config.js";
+import {
+  getConfig,
+  setDefaultProvider,
+  setOutputFormat,
+  setProviderConfig,
+} from "../core/config.js";
 import { ProviderName } from "../core/schema.js";
 import { success, error, formatOutput } from "../core/output.js";
 
@@ -14,10 +19,8 @@ export function registerConfigCommands(program: Command) {
     .action(async (opts) => {
       try {
         const cfg = await getConfig();
-        const data = opts.provider
-          ? cfg.providers?.[opts.provider as ProviderName] ?? {}
-          : cfg;
-        
+        const data = opts.provider ? (cfg.providers?.[opts.provider as ProviderName] ?? {}) : cfg;
+
         const response = success(data, {
           command: "config get",
         });
@@ -27,7 +30,7 @@ export function registerConfigCommands(program: Command) {
           "CONFIG_GET_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "config get" }
+          { command: "config get" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -72,24 +75,21 @@ export function registerConfigCommands(program: Command) {
             merchantId: opts.merchantId,
             hashKey: opts.hashKey,
             hashIv: opts.hashIv,
-            sandbox: Boolean(opts.sandbox)
+            sandbox: Boolean(opts.sandbox),
           };
           await setProviderConfig(opts.provider as ProviderName, providerConfig);
           updates.provider = opts.provider;
           updates.config = providerConfig;
         }
 
-        const response = success(
-          { message: "設定已更新", updates },
-          { command: "config set" }
-        );
+        const response = success({ message: "設定已更新", updates }, { command: "config set" });
         console.log(formatOutput(response, opts.json ?? false));
       } catch (err) {
         const response = error(
           "CONFIG_SET_FAILED",
           err instanceof Error ? err.message : String(err),
           err,
-          { command: "config set" }
+          { command: "config set" },
         );
         console.error(formatOutput(response, opts.json ?? false));
         process.exit(1);
@@ -98,6 +98,6 @@ export function registerConfigCommands(program: Command) {
 
   config.addHelpText(
     "after",
-    `\nExamples:\n  paid config get\n  paid config get --provider=payuni\n\n  paid config set --default-provider=payuni\n  paid config set --output-format=pretty\n  paid config set --provider=payuni --merchant-id=MS12345678 --hash-key=... --hash-iv=...\n  paid config set --provider=payuni --sandbox\n\nNotes:\n  設定檔位置: ~/.config/paid/config.toml\n  CLI flags 會覆蓋 env 與設定檔\n`
+    `\nExamples:\n  paid config get\n  paid config get --provider=payuni\n\n  paid config set --default-provider=payuni\n  paid config set --output-format=pretty\n  paid config set --provider=payuni --merchant-id=MS12345678 --hash-key=... --hash-iv=...\n  paid config set --provider=payuni --sandbox\n\nNotes:\n  設定檔位置: ~/.config/paid/config.toml\n  CLI flags 會覆蓋 env 與設定檔\n`,
   );
 }

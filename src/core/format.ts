@@ -20,17 +20,23 @@ function renderPrettyPayment(result: PaymentResult) {
   lines.push(kv("Provider", formatProvider(result.provider)));
   lines.push(kv("狀態", formatStatus((data as { status?: string }).status ?? result.status)));
   lines.push(kv("商店訂單編號", (data as { merTradeNo?: string }).merTradeNo ?? "-"));
-  lines.push(kv("UNi 序號", (data as { tradeNo?: string }).tradeNo ?? "-"));
+  lines.push(kv("交易序號", (data as { tradeNo?: string }).tradeNo ?? "-"));
   lines.push(kv("付款方式", formatMethod((data as { method?: string }).method ?? "-")));
   lines.push(kv("金額", formatMoney((data as { amount?: number }).amount)));
   lines.push(kv("付款時間", (data as { paidAt?: string }).paidAt ?? "-"));
-  lines.push("");
-  lines.push("付款資訊");
-  lines.push(kv("支付工具", formatPaymentType(raw)));
-  lines.push(kv("卡號", formatCard(raw.Card6No, raw.Card4No)));
-  lines.push(kv("發卡銀行", formatBank(raw.CardBank)));
-  lines.push(kv("授權碼", asString(raw.AuthCode) ?? "-"));
-  lines.push(kv("手續費", formatMoney(asNumber(raw.TradeFee))));
+
+  // The card/bank/fee block reads PAYUNi wire fields (Card6No, CardBank,
+  // numeric PaymentType); only render it for PAYUNi so other providers don't
+  // show a column of "-" and a raw PaymentType string.
+  if (result.provider === "payuni") {
+    lines.push("");
+    lines.push("付款資訊");
+    lines.push(kv("支付工具", formatPaymentType(raw)));
+    lines.push(kv("卡號", formatCard(raw.Card6No, raw.Card4No)));
+    lines.push(kv("發卡銀行", formatBank(raw.CardBank)));
+    lines.push(kv("授權碼", asString(raw.AuthCode) ?? "-"));
+    lines.push(kv("手續費", formatMoney(asNumber(raw.TradeFee))));
+  }
 
   return lines.join("\n");
 }

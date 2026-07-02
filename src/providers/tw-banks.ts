@@ -91,7 +91,7 @@ const BANKS: BankInfo[] = [
   { code: "814", fullName: "大眾商業銀行", shortName: "大眾銀行" },
   { code: "815", fullName: "日盛國際商業銀行", shortName: "日盛銀行" },
   { code: "816", fullName: "安泰商業銀行", shortName: "安泰銀行" },
-  { code: "822", fullName: "中國信託商業銀行", shortName: "中信銀行" }
+  { code: "822", fullName: "中國信託商業銀行", shortName: "中信銀行" },
 ];
 
 const BANK_MAP = new Map(BANKS.map((bank) => [bank.code, bank]));

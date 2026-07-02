@@ -2,6 +2,7 @@
  * Unified output format for all CLI commands
  * Agent-friendly structured responses
  */
+import { isPaymentError } from "./errors.js";
 
 export interface OutputMetadata {
   timestamp: string;
@@ -30,10 +31,7 @@ export type OutputResponse<T = unknown> = SuccessResponse<T> | ErrorResponse;
 /**
  * Create a success response
  */
-export function success<T>(
-  data: T,
-  metadata?: Partial<OutputMetadata>
-): SuccessResponse<T> {
+export function success<T>(data: T, metadata?: Partial<OutputMetadata>): SuccessResponse<T> {
   return {
     success: true,
     data,
@@ -51,7 +49,7 @@ export function error(
   code: string,
   message: string,
   details?: unknown,
-  metadata?: Partial<OutputMetadata>
+  metadata?: Partial<OutputMetadata>,
 ): ErrorResponse {
   return {
     success: false,
@@ -68,21 +66,46 @@ export function error(
 }
 
 /**
+ * Build an error response from a caught exception. For a normalized
+ * {@link PaymentError} it surfaces the stable `code` (NOT_FOUND/AUTH/...) plus
+ * the gateway's `rawCode`/`rawMessage`/`provider` in `details` — but never the
+ * full `raw` payload, which would dump the whole gateway response into output.
+ * The top-level `error.code` stays the command-scoped constant for stability.
+ */
+export function errorFromException(
+  fallbackCode: string,
+  err: unknown,
+  metadata?: Partial<OutputMetadata>,
+): ErrorResponse {
+  if (isPaymentError(err)) {
+    return error(
+      fallbackCode,
+      err.message,
+      {
+        code: err.code,
+        provider: err.provider,
+        rawCode: err.rawCode,
+        rawMessage: err.rawMessage,
+      },
+      metadata,
+    );
+  }
+  return error(fallbackCode, err instanceof Error ? err.message : String(err), undefined, metadata);
+}
+
+/**
  * Format output based on --json flag
  */
-export function formatOutput<T>(
-  response: OutputResponse<T>,
-  json: boolean
-): string {
+export function formatOutput<T>(response: OutputResponse<T>, json: boolean): string {
   if (json) {
     return JSON.stringify(response, null, 2);
   }
-  
+
   // Pretty format for human reading
   if (!response.success) {
     return `❌ Error: ${response.error.message} (${response.error.code})`;
   }
-  
+
   // For success, default to JSON if no custom formatter
   return JSON.stringify(response, null, 2);
 }

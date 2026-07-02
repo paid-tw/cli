@@ -14,7 +14,7 @@ export function registerDoctorCommand(program: Command) {
       try {
         const cfg = await getConfig();
         const result = await runDoctor(opts.provider, cfg);
-        
+
         // Support both --json and --format=json
         const useJson = opts.json || opts.format === "json";
         const response = success(result, {
@@ -40,10 +40,10 @@ export function registerDoctorCommand(program: Command) {
             suggestions: [
               "請指定 --provider 或設定預設 provider",
               "例如：paid doctor --provider=payuni",
-              "或：paid config set --default-provider=payuni"
-            ]
+              "或：paid config set --default-provider=payuni",
+            ],
           },
-          { command: "doctor" }
+          { command: "doctor" },
         );
         console.error(formatOutput(response, useJson));
         process.exit(1);

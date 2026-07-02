@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Build + static checks on a single modern Node. tsdown (rolldown) needs a
+  # current Node, so this gate — build, typecheck, lint, format, coverage — runs
+  # once on 22, separate from the runtime compat matrix below.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:coverage
+
+  # Run the offline (MSW) suite across the supported runtime range. Floor is
+  # Node 20 because vitest 4 requires ^20 || ^22 || >=24. Live suites are gated
+  # behind *_LIVE env vars and stay skipped here.
+  test:
+    runs-on: ubuntu-latest
+    name: test (Node ${{ matrix.node-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm test

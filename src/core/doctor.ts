@@ -13,15 +13,14 @@ export type DoctorResult = {
   paidEnv?: string;
 };
 
-export async function runDoctor(providerInput: string | undefined, cfg: PaidConfig): Promise<DoctorResult> {
+export async function runDoctor(
+  providerInput: string | undefined,
+  cfg: PaidConfig,
+): Promise<DoctorResult> {
   const provider = (await resolveProviderName(providerInput)) as ProviderName;
   const envPrefix = provider.toUpperCase();
 
-  const required = [
-    `${envPrefix}_MERCHANT_ID`,
-    `${envPrefix}_HASH_KEY`,
-    `${envPrefix}_HASH_IV`
-  ];
+  const required = [`${envPrefix}_MERCHANT_ID`, `${envPrefix}_HASH_KEY`, `${envPrefix}_HASH_IV`];
 
   const sources: Record<string, "dotenv" | "env" | "none"> = {};
   const missing: string[] = [];
@@ -43,7 +42,7 @@ export async function runDoctor(providerInput: string | undefined, cfg: PaidConf
     provider,
     hasConfig,
     env: { required, missing, sources },
-    paidEnv
+    paidEnv,
   };
 }
 
@@ -67,7 +66,7 @@ export function formatDoctorPretty(result: DoctorResult) {
     lines.push(
       `${result.hasConfig ? "✓" : "!"} ${pad("config.toml", 22)}${
         result.hasConfig ? "已設定" : "未設定"
-      }`
+      }`,
     );
   }
   if (result.paidEnv) {
