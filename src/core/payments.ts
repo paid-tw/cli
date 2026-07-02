@@ -1,31 +1,36 @@
 import { createHash } from "node:crypto";
-import { getProvider } from "./providers.js";
-import { mapCreateToProvider, mapGetToProvider, mapRefundToProvider } from "./mapping.js";
-import { CreatePaymentInput, GetPaymentInput, PaymentResult, RefundPaymentInput, RefundResult, NormalizedPaymentData } from "./schema.js";
+import { createProvider } from "./providers.js";
+import {
+  CreatePaymentInput,
+  GetPaymentInput,
+  PaymentResult,
+  RefundPaymentInput,
+  RefundResult,
+} from "./schema.js";
 import { resolveProviderConfig } from "./config.js";
 
 export async function createPayment(
   input: CreatePaymentInput,
   runtime?: { sandbox?: boolean }
 ): Promise<PaymentResult> {
-  const provider = getProvider(input.provider);
   const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
-  const mapped = mapCreateToProvider(input);
+  const provider = createProvider(input.provider, cfg);
 
-  const payload = {
-    ...mapped.payload,
-    MerchantID: cfg.merchantId,
-    HashKey: cfg.hashKey,
-    HashIV: cfg.hashIv,
-    Sandbox: cfg.sandbox
-  };
+  const raw = await provider.createPayment({
+    amount: input.amount,
+    currency: input.currency,
+    method: input.method,
+    orderId: input.orderId,
+    itemDesc: input.itemDesc,
+    returnUrl: input.returnUrl,
+    notifyUrl: input.notifyUrl,
+  });
 
-  const raw = await provider.createPayment(payload);
   return {
     provider: input.provider,
-    id: hashFromPayload(payload),
+    id: hashFromInput(input),
     status: "created",
-    raw
+    raw,
   };
 }
 
@@ -33,26 +38,17 @@ export async function getPayment(
   input: GetPaymentInput,
   runtime?: { sandbox?: boolean }
 ): Promise<PaymentResult> {
-  const provider = getProvider(input.provider);
   const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
-  const mapped = mapGetToProvider(input);
+  const provider = createProvider(input.provider, cfg);
 
-  const payload = {
-    ...mapped.payload,
-    MerchantID: cfg.merchantId,
-    HashKey: cfg.hashKey,
-    HashIV: cfg.hashIv,
-    Sandbox: cfg.sandbox
-  };
+  const data = await provider.getPayment({ merTradeNo: input.id, tradeNo: input.tradeNo });
 
-  const raw = await provider.getPayment(payload);
-  const data = (raw as { data?: NormalizedPaymentData }).data;
   return {
     provider: input.provider,
     id: input.id ?? input.tradeNo ?? "",
     status: "fetched",
     data,
-    raw
+    raw: data.raw,
   };
 }
 
@@ -60,27 +56,19 @@ export async function refundPayment(
   input: RefundPaymentInput,
   runtime?: { sandbox?: boolean }
 ): Promise<RefundResult> {
-  const provider = getProvider(input.provider);
   const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
-  const mapped = mapRefundToProvider(input);
+  const provider = createProvider(input.provider, cfg);
 
-  const payload = {
-    ...mapped.payload,
-    MerchantID: cfg.merchantId,
-    HashKey: cfg.hashKey,
-    HashIV: cfg.hashIv,
-    Sandbox: cfg.sandbox
-  };
+  const raw = await provider.refundPayment({ orderId: input.id, amount: input.amount });
 
-  const raw = await provider.refundPayment(payload);
   return {
     provider: input.provider,
     id: input.id,
     status: "refunded",
-    raw
+    raw,
   };
 }
 
-function hashFromPayload(payload: Record<string, unknown>) {
-  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+function hashFromInput(input: CreatePaymentInput) {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }

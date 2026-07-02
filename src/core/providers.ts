@@ -1,49 +1,76 @@
-import { ProviderName } from "./schema.js";
-import { PayuniProvider } from "../providers/payuni.js";
+import { NormalizedPaymentData, PaymentMethod, ProviderName } from "./schema.js";
+import { Capability } from "./capabilities.js";
+import { PaymentError } from "./errors.js";
+import { createPayuniProvider } from "../providers/payuni.js";
+import { createNewebpayProvider } from "../providers/newebpay.js";
+import { createEcpayProvider } from "../providers/ecpay.js";
 
-export interface ProviderAdapter {
-  name: ProviderName;
-  createPayment: (input: unknown) => Promise<unknown>;
-  getPayment: (input: unknown) => Promise<unknown>;
-  refundPayment: (input: unknown) => Promise<unknown>;
+/**
+ * Runtime config handed to a provider factory. Unlike the previous design —
+ * where credentials were mixed into every request payload — credentials and the
+ * target host live on the provider instance, mirroring @paid-tw/einvoice's
+ * `createAmegoProvider({ ..., baseUrl })`. Tests inject `baseUrl` to point the
+ * adapter at an MSW mock host.
+ */
+export interface ProviderRuntimeConfig {
+  merchantId?: string;
+  hashKey?: string;
+  hashIv?: string;
+  sandbox?: boolean;
+  /** Override the gateway origin (used by tests to target an MSW host). */
+  baseUrl?: string;
 }
 
-const providers: Record<ProviderName, ProviderAdapter> = {
-  payuni: new PayuniProvider(),
-  newebpay: {
-    name: "newebpay",
-    createPayment: async () => {
-      throw new Error("NewebPay 尚未實作");
-    },
-    getPayment: async () => {
-      throw new Error("NewebPay 尚未實作");
-    },
-    refundPayment: async () => {
-      throw new Error("NewebPay 尚未實作");
-    }
-  },
-  ecpay: {
-    name: "ecpay",
-    createPayment: async () => {
-      throw new Error("ECPay 尚未實作");
-    },
-    getPayment: async () => {
-      throw new Error("ECPay 尚未實作");
-    },
-    refundPayment: async () => {
-      throw new Error("ECPay 尚未實作");
-    }
-  }
+/** Provider-agnostic requests. Adapters map these onto their own wire format. */
+export interface CreatePaymentRequest {
+  amount: number;
+  currency: string;
+  method: PaymentMethod;
+  orderId: string;
+  itemDesc?: string;
+  returnUrl?: string;
+  notifyUrl?: string;
+}
+
+export interface GetPaymentRequest {
+  merTradeNo?: string;
+  tradeNo?: string;
+}
+
+export interface RefundPaymentRequest {
+  orderId: string;
+  amount?: number;
+}
+
+/**
+ * The contract every gateway adapter implements. Application/CLI code depends
+ * only on this interface and feature-detects via {@link PaymentProvider.capabilities};
+ * switching gateways means swapping the factory, nothing else.
+ */
+export interface PaymentProvider {
+  readonly name: ProviderName;
+  readonly capabilities: ReadonlySet<Capability>;
+  createPayment(input: CreatePaymentRequest): Promise<unknown>;
+  getPayment(input: GetPaymentRequest): Promise<NormalizedPaymentData>;
+  refundPayment(input: RefundPaymentRequest): Promise<unknown>;
+}
+
+export type ProviderFactory = (config: ProviderRuntimeConfig) => PaymentProvider;
+
+const factories: Record<ProviderName, ProviderFactory> = {
+  payuni: createPayuniProvider,
+  newebpay: createNewebpayProvider,
+  ecpay: createEcpayProvider,
 };
 
-export function getProvider(name: ProviderName): ProviderAdapter {
-  const provider = providers[name];
-  if (!provider) {
-    throw new Error(`不支援的 provider: ${name}`);
+export function createProvider(name: ProviderName, config: ProviderRuntimeConfig): PaymentProvider {
+  const factory = factories[name];
+  if (!factory) {
+    throw new PaymentError("VALIDATION", `不支援的 provider: ${name}`, name);
   }
-  return provider;
+  return factory(config);
 }
 
-export function listProviders() {
-  return Object.keys(providers);
+export function listProviders(): ProviderName[] {
+  return Object.keys(factories) as ProviderName[];
 }

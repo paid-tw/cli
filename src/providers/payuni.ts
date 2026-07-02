@@ -1,118 +1,157 @@
-import { ProviderAdapter } from "../core/providers.js";
 import crypto from "node:crypto";
-import fetch from "node-fetch";
+import { assertSupports, Capability } from "../core/capabilities.js";
+import { PaymentError, PaymentErrorCode } from "../core/errors.js";
+import {
+  GetPaymentRequest,
+  PaymentProvider,
+  ProviderRuntimeConfig,
+} from "../core/providers.js";
+import { NormalizedPaymentData } from "../core/schema.js";
 
-export class PayuniProvider implements ProviderAdapter {
-  name = "payuni" as const;
+const PAYUNI_ORIGINS = {
+  sandbox: "https://sandbox-api.payuni.com.tw",
+  production: "https://api.payuni.com.tw",
+} as const;
 
-  async createPayment(input: unknown) {
-    // TODO: 實作 PAYUNi 建立交易 API
-    return {
-      ok: false,
-      message: "PAYUNi createPayment 尚未實作",
-      input
-    };
-  }
+const CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>(["GET_PAYMENT"]);
 
-  async getPayment(input: unknown) {
-    const payload = ensureQueryPayload(input);
-    const params = new URLSearchParams({
-      MerID: payload.MerchantID,
-      Timestamp: String(Math.floor(Date.now() / 1000))
-    });
-    if (payload.MerTradeNo) params.set("MerTradeNo", payload.MerTradeNo);
-    if (payload.TradeNo) params.set("TradeNo", payload.TradeNo);
-    const queryString = params.toString();
+/**
+ * PAYUNi (統一金流) adapter. Credentials + host live on the instance; `baseUrl`
+ * (or the sandbox flag) selects the gateway origin so tests can point it at an
+ * MSW mock. Only trade-query is implemented today — create/refund are declared
+ * unsupported and reject with a normalized {@link PaymentError}.
+ */
+export function createPayuniProvider(config: ProviderRuntimeConfig): PaymentProvider {
+  const origin = (
+    config.baseUrl ?? (config.sandbox ? PAYUNI_ORIGINS.sandbox : PAYUNI_ORIGINS.production)
+  ).replace(/\/+$/, "");
 
-    const encryptInfo = encrypt(queryString, payload.HashKey, payload.HashIV);
-    const hashInfo = generateHashInfo(encryptInfo, payload.HashKey, payload.HashIV);
+  return {
+    name: "payuni",
+    capabilities: CAPABILITIES,
 
-    const response = await fetch(getQueryEndpoint(payload.Sandbox), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "payuni"
-      },
-      body: new URLSearchParams({
-        MerID: payload.MerchantID,
-        Version: "2.0",
-        EncryptInfo: encryptInfo,
-        HashInfo: hashInfo
-      })
-    });
+    async createPayment() {
+      assertSupports("payuni", CAPABILITIES, "CREATE_PAYMENT");
+      throw new PaymentError("UNSUPPORTED", "PAYUNi createPayment 尚未實作", "payuni");
+    },
 
-    if (!response.ok) {
-      throw new Error(`PAYUNi query failed: ${response.status} ${response.statusText}`);
-    }
+    async refundPayment() {
+      assertSupports("payuni", CAPABILITIES, "REFUND_PAYMENT");
+      throw new PaymentError("UNSUPPORTED", "PAYUNi refundPayment 尚未實作", "payuni");
+    },
 
-    const result = (await response.json()) as PayuniQueryResponse;
-    if (process.env.PAID_DEBUG === "1") {
-      console.error("[payuni] status:", response.status);
-      console.error("[payuni] response:", JSON.stringify(result));
-      if (result.EncryptInfo) {
-        console.error("[payuni] encrypt_info_length:", result.EncryptInfo.length);
+    async getPayment(input: GetPaymentRequest): Promise<NormalizedPaymentData> {
+      assertSupports("payuni", CAPABILITIES, "GET_PAYMENT");
+      const { merchantId, hashKey, hashIv } = requireCredentials(config);
+      if (!input.merTradeNo && !input.tradeNo) {
+        throw new PaymentError(
+          "VALIDATION",
+          "PAYUNi 查詢需要提供 MerTradeNo 或 TradeNo",
+          "payuni"
+        );
       }
-    }
 
-    const errorCode = result.Status && result.Status !== "SUCCESS" ? result.Status : undefined;
-    const errorMessage =
-      errorCode ? `${errorCode}: ${PAYUNI_QUERY_ERRORS[errorCode] ?? "未知錯誤"}` : undefined;
+      const params = new URLSearchParams({
+        MerID: merchantId,
+        Timestamp: String(Math.floor(Date.now() / 1000)),
+      });
+      if (input.merTradeNo) params.set("MerTradeNo", input.merTradeNo);
+      if (input.tradeNo) params.set("TradeNo", input.tradeNo);
 
-    const decrypted = result.EncryptInfo
-      ? tryDecrypt(result.EncryptInfo, payload.HashKey, payload.HashIV)
-      : undefined;
-    const parsed = decrypted?.value ? parseDecryptedPayload(decrypted.value) : undefined;
-    const normalized = parsed ? normalizeQueryResult(parsed) : undefined;
+      const encryptInfo = encrypt(params.toString(), hashKey, hashIv);
+      const hashInfo = generateHashInfo(encryptInfo, hashKey, hashIv);
 
-    return {
-      ok: !errorCode,
-      error: errorMessage,
-      data: normalized,
-      raw: {
-        ...result,
-        decrypted,
-        parsed
+      let response: Response;
+      try {
+        response = await fetch(`${origin}/api/trade/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "payuni",
+          },
+          body: new URLSearchParams({
+            MerID: merchantId,
+            Version: "2.0",
+            EncryptInfo: encryptInfo,
+            HashInfo: hashInfo,
+          }),
+        });
+      } catch (err) {
+        throw new PaymentError("NETWORK", "PAYUNi query 連線失敗", "payuni", { cause: err });
       }
-    };
-  }
 
-  async refundPayment(input: unknown) {
-    // TODO: 實作 PAYUNi 退款 API
-    return {
-      ok: false,
-      message: "PAYUNi refundPayment 尚未實作",
-      input
-    };
-  }
+      if (!response.ok) {
+        throw new PaymentError(
+          "PROVIDER",
+          `PAYUNi query failed: ${response.status} ${response.statusText}`,
+          "payuni",
+          { rawCode: String(response.status) }
+        );
+      }
+
+      const result = (await response.json()) as PayuniQueryResponse;
+      if (process.env.PAID_DEBUG === "1") {
+        console.error("[payuni] status:", response.status);
+        console.error("[payuni] response:", JSON.stringify(result));
+      }
+
+      if (result.Status && result.Status !== "SUCCESS") {
+        const rawMessage = PAYUNI_QUERY_ERRORS[result.Status] ?? result.Message ?? "未知錯誤";
+        throw new PaymentError(
+          mapQueryStatusToCode(result.Status),
+          `${result.Status}: ${rawMessage}`,
+          "payuni",
+          { rawCode: result.Status, rawMessage, raw: result }
+        );
+      }
+
+      const decrypted = result.EncryptInfo
+        ? tryDecrypt(result.EncryptInfo, hashKey, hashIv)
+        : undefined;
+      if (decrypted?.error) {
+        throw new PaymentError("PROVIDER", `PAYUNi 回應解密失敗: ${decrypted.error}`, "payuni", {
+          raw: result,
+        });
+      }
+
+      const parsed = decrypted?.value ? parseDecryptedPayload(decrypted.value) : undefined;
+      if (!parsed) {
+        throw new PaymentError("PROVIDER", "PAYUNi 回應缺少可解析資料", "payuni", { raw: result });
+      }
+      return normalizeQueryResult(parsed);
+    },
+  };
 }
 
-type PayuniQueryPayload = {
-  MerchantID: string;
-  HashKey: string;
-  HashIV: string;
-  Sandbox?: boolean;
-  MerTradeNo?: string;
-  TradeNo?: string;
-};
-
-function ensureQueryPayload(input: unknown): PayuniQueryPayload {
-  if (!input || typeof input !== "object") {
-    throw new Error("PAYUNi query payload invalid");
+function requireCredentials(config: ProviderRuntimeConfig) {
+  const { merchantId, hashKey, hashIv } = config;
+  if (!merchantId || !hashKey || !hashIv) {
+    throw new PaymentError(
+      "AUTH",
+      "缺少 PAYUNi 憑證（MerchantID / HashKey / HashIV）",
+      "payuni"
+    );
   }
-  const payload = input as Partial<PayuniQueryPayload>;
-  if (!payload.MerchantID) throw new Error("PAYUNi MerchantID missing");
-  if (!payload.HashKey) throw new Error("PAYUNi HashKey missing");
-  if (!payload.HashIV) throw new Error("PAYUNi HashIV missing");
-  if (!payload.MerTradeNo && !payload.TradeNo) {
-    throw new Error("PAYUNi MerTradeNo/TradeNo missing");
-  }
-  return payload as PayuniQueryPayload;
+  return { merchantId, hashKey, hashIv };
 }
 
-function getQueryEndpoint(isTest?: boolean): string {
-  return isTest
-    ? "https://sandbox-api.payuni.com.tw/api/trade/query"
-    : "https://api.payuni.com.tw/api/trade/query";
+/** Map a PAYUNi `QUERYxxxxx` status onto a stable {@link PaymentErrorCode}. */
+function mapQueryStatusToCode(status: string): PaymentErrorCode {
+  switch (status) {
+    case "QUERY01002": // 資料 HASH 比對不符合
+    case "QUERY01005": // 查無符合商店資料
+      return "AUTH";
+    case "QUERY01003": // 資料解密失敗
+    case "QUERY01004": // 解密資料不存在
+      return "PROVIDER";
+    case "QUERY03001": // 查無符合訂單資料
+      return "NOT_FOUND";
+    default:
+      // QUERY01001 / QUERY02xxx 皆為請求參數層級錯誤
+      return status.startsWith("QUERY01") || status.startsWith("QUERY02")
+        ? "VALIDATION"
+        : "PROVIDER";
+  }
 }
 
 function encrypt(data: string, hashKey: string, hashIv: string): string {
@@ -121,15 +160,16 @@ function encrypt(data: string, hashKey: string, hashIv: string): string {
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const encrypted = Buffer.concat([cipher.update(data, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
-  const encryptedBase64 = encrypted.toString("base64");
-  const tagBase64 = tag.toString("base64");
-  const combined = `${encryptedBase64}:::${tagBase64}`;
+  const combined = `${encrypted.toString("base64")}:::${tag.toString("base64")}`;
   return Buffer.from(combined, "utf8").toString("hex");
 }
 
 function generateHashInfo(encryptInfo: string, hashKey: string, hashIv: string): string {
-  const data = `${hashKey}${encryptInfo}${hashIv}`;
-  return crypto.createHash("sha256").update(data).digest("hex").toUpperCase();
+  return crypto
+    .createHash("sha256")
+    .update(`${hashKey}${encryptInfo}${hashIv}`)
+    .digest("hex")
+    .toUpperCase();
 }
 
 function tryDecrypt(encryptedHex: string, hashKey: string, hashIv: string) {
@@ -143,10 +183,9 @@ function tryDecrypt(encryptedHex: string, hashKey: string, hashIv: string) {
     const iv = Buffer.from(hashIv.trim(), "utf8");
     const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(Buffer.from(tagBase64, "base64"));
-    const encryptedData = Buffer.from(encryptedBase64, "base64");
     const decrypted = Buffer.concat([
-      decipher.update(encryptedData),
-      decipher.final()
+      decipher.update(Buffer.from(encryptedBase64, "base64")),
+      decipher.final(),
     ]).toString("utf8");
     return { value: decrypted };
   } catch (error) {
@@ -165,6 +204,11 @@ type PayuniQueryResponse = {
 
 type PayuniQueryResult = Record<string, unknown>;
 
+/**
+ * PAYUNi's decrypted payload comes in three observed shapes: a JSON object, a
+ * querystring, or a querystring with flattened `Result[0][Field]` keys. This
+ * normalizes all three into `{ Result: [...] }`.
+ */
 function parseDecryptedPayload(input: string): Record<string, unknown> {
   const trimmed = input.trim();
   if (!trimmed) return {};
@@ -179,23 +223,13 @@ function parseDecryptedPayload(input: string): Record<string, unknown> {
   const params = new URLSearchParams(trimmed);
   const obj: Record<string, unknown> = {};
   for (const [key, value] of params.entries()) {
-    if (key === "Result") {
-      obj[key] = tryParseJson(value) ?? value;
-    } else {
-      obj[key] = value;
-    }
+    obj[key] = key === "Result" ? (tryParseJson(value) ?? value) : value;
   }
 
   const result0 = extractFromFlatKeys(obj);
   if (Object.keys(result0).length) {
     obj.Result = [result0];
   }
-  if (process.env.PAID_DEBUG === "1") {
-    const resultKeys = Object.keys(obj).filter((key) => key.startsWith("Result"));
-    console.error("[payuni] flat_result_keys:", Object.keys(result0).length);
-    console.error("[payuni] result_keys_sample:", resultKeys.slice(0, 5));
-  }
-
   return obj;
 }
 
@@ -207,19 +241,16 @@ function tryParseJson(input: string): unknown | undefined {
   }
 }
 
-function normalizeQueryResult(parsed: Record<string, unknown>) {
+function normalizeQueryResult(parsed: Record<string, unknown>): NormalizedPaymentData {
   const result = extractFirstResult(parsed);
-  const tradeStatus = asString(result?.TradeStatus);
-  const paymentType = asString(result?.PaymentType);
-
   return {
-    status: mapTradeStatus(tradeStatus),
-    method: mapPaymentType(paymentType),
+    status: mapTradeStatus(asString(result?.TradeStatus)),
+    method: mapPaymentType(asString(result?.PaymentType)),
     amount: asNumber(result?.TradeAmt),
     paidAt: asString(result?.PaymentDay),
     tradeNo: asString(result?.TradeNo),
     merTradeNo: asString(result?.MerTradeNo),
-    raw: result
+    raw: result,
   };
 }
 
@@ -241,10 +272,9 @@ function extractFromFlatKeys(parsed: Record<string, unknown>) {
   for (const [key, value] of Object.entries(parsed)) {
     const match = key.match(re);
     if (!match) continue;
-    const index = Number(match[1]);
+    if (Number(match[1]) !== 0) continue;
     const field = match[2];
     if (!field) continue;
-    if (index !== 0) continue;
     out[field] = value;
   }
   return out;
@@ -321,5 +351,5 @@ const PAYUNI_QUERY_ERRORS: Record<string, string> = {
   QUERY02013: "超過單次可查詢筆數上限",
   QUERY03001: "查無符合訂單資料",
   QUERY04001: "未有API處理結果",
-  QUERY04002: "回傳加密失敗"
+  QUERY04002: "回傳加密失敗",
 };
