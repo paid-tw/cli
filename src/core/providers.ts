@@ -1,61 +1,26 @@
-import { NormalizedPaymentData, PaymentMethod, ProviderName } from "./schema.js";
-import { Capability } from "./capabilities.js";
-import { PaymentError } from "./errors.js";
-import { createPayuniProvider } from "../providers/payuni.js";
-import { createNewebpayProvider } from "../providers/newebpay.js";
-import { createEcpayProvider } from "../providers/ecpay.js";
-
 /**
- * Runtime config handed to a provider factory. Unlike the previous design —
- * where credentials were mixed into every request payload — credentials and the
- * target host live on the provider instance, mirroring @paid-tw/einvoice's
- * `createAmegoProvider({ ..., baseUrl })`. Tests inject `baseUrl` to point the
- * adapter at an MSW mock host.
+ * CLI-side provider registry. The SDK packages export individual factories;
+ * this file is where the CLI composes them (core must not hardcode a registry).
  */
-export interface ProviderRuntimeConfig {
-  merchantId?: string;
-  hashKey?: string;
-  hashIv?: string;
-  sandbox?: boolean;
-  /** Override the gateway origin (used by tests to target an MSW host). */
-  baseUrl?: string;
-}
+import {
+  PaymentError,
+  type PaymentProvider,
+  type ProviderFactory,
+  type ProviderRuntimeConfig,
+} from "@paid-tw/payment";
+import { createPayuniProvider } from "@paid-tw/payment-payuni";
+import { createNewebpayProvider } from "@paid-tw/payment-newebpay";
+import { createEcpayProvider } from "@paid-tw/payment-ecpay";
+import type { ProviderName } from "./schema.js";
 
-/** Provider-agnostic requests. Adapters map these onto their own wire format. */
-export interface CreatePaymentRequest {
-  amount: number;
-  currency: string;
-  method: PaymentMethod;
-  orderId: string;
-  itemDesc?: string;
-  returnUrl?: string;
-  notifyUrl?: string;
-}
-
-export interface GetPaymentRequest {
-  merTradeNo?: string;
-  tradeNo?: string;
-}
-
-export interface RefundPaymentRequest {
-  orderId: string;
-  amount?: number;
-}
-
-/**
- * The contract every gateway adapter implements. Application/CLI code depends
- * only on this interface and feature-detects via {@link PaymentProvider.capabilities};
- * switching gateways means swapping the factory, nothing else.
- */
-export interface PaymentProvider {
-  readonly name: ProviderName;
-  readonly capabilities: ReadonlySet<Capability>;
-  createPayment(input: CreatePaymentRequest): Promise<unknown>;
-  getPayment(input: GetPaymentRequest): Promise<NormalizedPaymentData>;
-  refundPayment(input: RefundPaymentRequest): Promise<unknown>;
-}
-
-export type ProviderFactory = (config: ProviderRuntimeConfig) => PaymentProvider;
+export type {
+  CreatePaymentRequest,
+  GetPaymentRequest,
+  PaymentProvider,
+  ProviderFactory,
+  ProviderRuntimeConfig,
+  RefundPaymentRequest,
+} from "@paid-tw/payment";
 
 const factories: Record<ProviderName, ProviderFactory> = {
   payuni: createPayuniProvider,
