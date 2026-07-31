@@ -14,7 +14,7 @@ export function registerConfigCommands(program: Command) {
   config
     .command("get")
     .description("取得設定")
-    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .option("--json", "JSON 格式輸出")
     .action(async (opts) => {
       try {
@@ -40,7 +40,7 @@ export function registerConfigCommands(program: Command) {
   config
     .command("set")
     .description("寫入設定")
-    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .option("--default-provider <provider>", "預設支付服務")
     .option("--output-format <format>", "輸出格式 (json/pretty)")
     .option("--merchant-id <id>", "商店代號")

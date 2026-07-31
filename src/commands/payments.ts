@@ -11,14 +11,16 @@ export function registerPaymentsCommands(program: Command) {
   payments
     .command("create")
     .description("建立交易")
-    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .requiredOption("--amount <amount>", "金額")
     .option("--currency <currency>", "幣別", "TWD")
     .requiredOption("--method <method>", "付款方式 (card/linepay/atm/cvs)")
     .requiredOption("--order-id <orderId>", "訂單編號")
     .option("--item-desc <desc>", "商品描述")
-    .option("--return-url <url>", "Return URL")
-    .option("--notify-url <url>", "Notify URL")
+    .option("--return-url <url>", "Return URL / OrderResultURL")
+    .option("--notify-url <url>", "Notify URL / ReturnURL")
+    .option("--email <email>", "消費者 email（ecpay-ecpg 與 phone 擇一必填）")
+    .option("--phone <phone>", "消費者電話（ecpay-ecpg 與 email 擇一必填）")
     .option("--json", "JSON 格式輸出")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
     .option("--production", "使用正式環境（覆蓋設定）")
@@ -36,6 +38,8 @@ export function registerPaymentsCommands(program: Command) {
             itemDesc: opts.itemDesc,
             returnUrl: opts.returnUrl,
             notifyUrl: opts.notifyUrl,
+            email: opts.email,
+            phone: opts.phone,
           },
           runtime,
         );
@@ -61,7 +65,7 @@ export function registerPaymentsCommands(program: Command) {
   payments
     .command("get")
     .description("查詢交易")
-    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .option("--id <id>", "交易 ID（MerTradeNo）")
     .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
     .option("--format <format>", "輸出格式 (json/pretty)")
@@ -118,7 +122,7 @@ export function registerPaymentsCommands(program: Command) {
   payments
     .command("refund")
     .description("退款")
-    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .requiredOption("--id <id>", "交易 ID")
     .option("--amount <amount>", "退款金額，預設全額")
     .option("--json", "JSON 格式輸出")
@@ -157,7 +161,7 @@ export function registerPaymentsCommands(program: Command) {
 
   payments.addHelpText(
     "after",
-    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=payuni --amount=200 --method=linepay --order-id=ORDER124\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=payuni --id=Ax234234jisdi --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  PAYUNi 查詢: --id=MerTradeNo 或 --trade-no=TradeNo\n  PAYUNi 查詢: 會自動帶 Version=2.0、Timestamp、User-Agent=payuni\n  --format: json | pretty\n`,
+    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=ecpay-ecpg --amount=100 --method=card --order-id=ORDER123 \\\n    --notify-url=https://example.com/notify --email=buyer@example.com --sandbox\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=ecpay --id=ORDER123 --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider: payuni | newebpay | ecpay (AIO 導轉) | ecpay-ecpg (站內付 2.0 Token)\n  ecpay-ecpg create 回傳 mode:token（給前端 JS），需 --email 或 --phone\n  ecpay-ecpg 憑證: ECPAY_ECPG_* 或共用 ECPAY_*\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  --format: json | pretty\n`,
   );
 }
 

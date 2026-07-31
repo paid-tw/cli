@@ -10,7 +10,7 @@ import {
 } from "@paid-tw/payment";
 import { createPayuniProvider } from "@paid-tw/payment-payuni";
 import { createNewebpayProvider } from "@paid-tw/payment-newebpay";
-import { createEcpayProvider } from "@paid-tw/payment-ecpay";
+import { createEcpayProvider, createEcpayEcpgProvider } from "@paid-tw/payment-ecpay";
 import type { ProviderName } from "./schema.js";
 
 export type {
@@ -26,6 +26,8 @@ const factories: Record<ProviderName, ProviderFactory> = {
   payuni: createPayuniProvider,
   newebpay: createNewebpayProvider,
   ecpay: createEcpayProvider,
+  // 站內付 2.0 — same package, different factory / name ("ecpay-ecpg").
+  "ecpay-ecpg": createEcpayEcpgProvider,
 };
 
 export function createProvider(name: ProviderName, config: ProviderRuntimeConfig): PaymentProvider {

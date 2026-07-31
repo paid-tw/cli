@@ -7,7 +7,7 @@ export function registerDoctorCommand(program: Command) {
   program
     .command("doctor")
     .description("檢查設定與環境變數")
-    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .option("--format <format>", "輸出格式 (json/pretty)")
     .option("--json", "JSON 格式輸出（等同 --format=json）")
     .action(async (opts) => {

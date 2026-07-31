@@ -35,7 +35,7 @@ export function registerProviderCommands(program: Command) {
   providers
     .command("ping")
     .description("連線測試（依 provider 實作）")
-    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay)")
+    .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .option("--id <id>", "交易 ID（MerTradeNo）")
     .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
     .option("--json", "JSON 格式輸出")

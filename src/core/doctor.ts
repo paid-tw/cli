@@ -18,21 +18,36 @@ export async function runDoctor(
   cfg: PaidConfig,
 ): Promise<DoctorResult> {
   const provider = (await resolveProviderName(providerInput)) as ProviderName;
-  const envPrefix = provider.toUpperCase();
+  // ecpay-ecpg: show ECPAY_ECPG_* but accept fallback ECPAY_* as present.
+  const primaryPrefix = provider === "ecpay-ecpg" ? "ECPAY_ECPG" : provider.toUpperCase().replace(/-/g, "_");
+  const fallbackPrefix = provider === "ecpay-ecpg" ? "ECPAY" : undefined;
 
-  const required = [`${envPrefix}_MERCHANT_ID`, `${envPrefix}_HASH_KEY`, `${envPrefix}_HASH_IV`];
+  const required = [
+    `${primaryPrefix}_MERCHANT_ID`,
+    `${primaryPrefix}_HASH_KEY`,
+    `${primaryPrefix}_HASH_IV`,
+  ];
 
   const sources: Record<string, "dotenv" | "env" | "none"> = {};
   const missing: string[] = [];
 
   for (const key of required) {
-    const value = process.env[key];
+    const suffix = key.slice(primaryPrefix.length + 1); // MERCHANT_ID | HASH_KEY | HASH_IV
+    const primary = process.env[key];
+    const fallback = fallbackPrefix ? process.env[`${fallbackPrefix}_${suffix}`] : undefined;
+    const value = primary || fallback;
     if (!value) {
       sources[key] = "none";
       missing.push(key);
       continue;
     }
-    sources[key] = process.env.__PAID_DOTENV?.split(",").includes(key) ? "dotenv" : "env";
+    const resolvedKey = primary ? key : `${fallbackPrefix}_${suffix}`;
+    sources[key] = process.env.__PAID_DOTENV?.split(",").includes(resolvedKey ?? "")
+      ? "dotenv"
+      : "env";
+    if (!primary && fallback) {
+      sources[key] = sources[key]; // still "set" via ECPAY_* fallback
+    }
   }
 
   const hasConfig = Boolean(cfg.providers?.[provider]);
@@ -90,7 +105,9 @@ function formatProvider(provider: string) {
     case "payuni":
       return "PAYUNi 統一金流";
     case "ecpay":
-      return "綠界科技 ECPay";
+      return "綠界科技 ECPay (AIO)";
+    case "ecpay-ecpg":
+      return "綠界科技 ECPay 站內付 2.0";
     case "newebpay":
       return "NewebPay 藍新金流";
     default:

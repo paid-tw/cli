@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { mergeProviderConfig } from "../config.js";
+import { mergeProviderConfig, providerEnvPrefix } from "../config.js";
+
+describe("providerEnvPrefix", () => {
+  it("maps hyphenated ecpay-ecpg to ECPAY_ECPG", () => {
+    expect(providerEnvPrefix("ecpay-ecpg")).toBe("ECPAY_ECPG");
+    expect(providerEnvPrefix("ecpay")).toBe("ECPAY");
+    expect(providerEnvPrefix("payuni")).toBe("PAYUNI");
+  });
+});
 
 const CREDS = { merchantId: "MS123", hashKey: "K", hashIv: "IV" };
 

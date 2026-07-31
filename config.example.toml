@@ -6,3 +6,17 @@ merchantId = "MS12345678"
 hashKey = "your_hash_key"
 hashIv = "your_hash_iv"
 sandbox = true
+
+# ECPay AIO (導轉) — public stage merchant 3002607 works for both AIO and ECPG
+# [providers.ecpay]
+# merchantId = "3002607"
+# hashKey = "pwFHCqoQZGmho4w6"
+# hashIv = "EkRm7iFT261dpevs"
+# sandbox = true
+
+# ECPay 站內付 2.0 — optional dedicated block; falls back to [providers.ecpay] / ECPAY_*
+# [providers.ecpay-ecpg]
+# merchantId = "3002607"
+# hashKey = "pwFHCqoQZGmho4w6"
+# hashIv = "EkRm7iFT261dpevs"
+# sandbox = true

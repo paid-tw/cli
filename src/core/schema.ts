@@ -1,4 +1,4 @@
-export type ProviderName = "payuni" | "newebpay" | "ecpay";
+export type ProviderName = "payuni" | "newebpay" | "ecpay" | "ecpay-ecpg";
 export type PaymentMethod = "card" | "linepay" | "atm" | "cvs";
 
 export interface CreatePaymentInput {
@@ -10,6 +10,10 @@ export interface CreatePaymentInput {
   itemDesc?: string;
   returnUrl?: string;
   notifyUrl?: string;
+  /** Required by ecpay-ecpg (ConsumerInfo) unless phone is set. */
+  email?: string;
+  /** Required by ecpay-ecpg (ConsumerInfo) unless email is set. */
+  phone?: string;
 }
 
 export interface GetPaymentInput {

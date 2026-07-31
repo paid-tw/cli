@@ -102,24 +102,54 @@ export async function resolveProviderConfig(
   flags?: ProviderConfig,
   runtime?: RuntimeEnv,
 ): Promise<ProviderConfig> {
-  const envPrefix = provider.toUpperCase();
-  const rawSandbox = process.env[`${envPrefix}_SANDBOX`];
-  const env: ProviderConfig = {
-    merchantId: process.env[`${envPrefix}_MERCHANT_ID`],
-    hashKey: process.env[`${envPrefix}_HASH_KEY`],
-    hashIv: process.env[`${envPrefix}_HASH_IV`],
-    // undefined (not false) when the var is unset, so config.toml can still win.
-    sandbox: rawSandbox === undefined ? undefined : rawSandbox === "true",
-  };
+  const env = loadEnvProviderConfig(provider);
 
   const fileConfig = await getConfig();
-  const fileProvider = fileConfig.providers?.[provider] ?? {};
+  // ecpay-ecpg may reuse [providers.ecpay] credentials when dedicated block absent.
+  const fileProvider =
+    fileConfig.providers?.[provider] ??
+    (provider === "ecpay-ecpg" ? (fileConfig.providers?.ecpay ?? {}) : {});
 
   const envMode = resolvePaidEnv();
   const runtimeSandbox =
     runtime?.sandbox !== undefined ? runtime.sandbox : envMode !== undefined ? envMode : undefined;
 
   return mergeProviderConfig(fileProvider, env, flags, runtimeSandbox);
+}
+
+/**
+ * Env prefix for a provider. Hyphenated names become underscores
+ * (`ecpay-ecpg` → `ECPAY_ECPG`).
+ */
+export function providerEnvPrefix(provider: ProviderName): string {
+  return provider.toUpperCase().replace(/-/g, "_");
+}
+
+/**
+ * Read merchant credentials from env. For `ecpay-ecpg`, prefer `ECPAY_ECPG_*`
+ * then fall back to shared `ECPAY_*` (same public stage merchant keys).
+ */
+function loadEnvProviderConfig(provider: ProviderName): ProviderConfig {
+  const prefixes =
+    provider === "ecpay-ecpg"
+      ? (["ECPAY_ECPG", "ECPAY"] as const)
+      : ([providerEnvPrefix(provider)] as const);
+
+  const pick = (suffix: string): string | undefined => {
+    for (const p of prefixes) {
+      const v = process.env[`${p}_${suffix}`];
+      if (v !== undefined && v !== "") return v;
+    }
+    return undefined;
+  };
+
+  const rawSandbox = pick("SANDBOX");
+  return {
+    merchantId: pick("MERCHANT_ID"),
+    hashKey: pick("HASH_KEY"),
+    hashIv: pick("HASH_IV"),
+    sandbox: rawSandbox === undefined ? undefined : rawSandbox === "true",
+  };
 }
 
 /**
@@ -149,7 +179,7 @@ function cleanUndefined<T extends object>(input: T): T {
   return Object.fromEntries(entries) as T;
 }
 
-const KNOWN_PROVIDERS: ProviderName[] = ["payuni", "newebpay", "ecpay"];
+const KNOWN_PROVIDERS: ProviderName[] = ["payuni", "newebpay", "ecpay", "ecpay-ecpg"];
 
 function isKnownProvider(value: string): value is ProviderName {
   return KNOWN_PROVIDERS.includes(value as ProviderName);

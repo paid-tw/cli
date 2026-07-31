@@ -57,7 +57,9 @@ function formatProvider(provider: string) {
     case "payuni":
       return "PAYUNi 統一金流";
     case "ecpay":
-      return "綠界科技 ECPay";
+      return "綠界科技 ECPay (AIO)";
+    case "ecpay-ecpg":
+      return "綠界科技 ECPay 站內付 2.0";
     case "newebpay":
       return "NewebPay 藍新金流";
     default:

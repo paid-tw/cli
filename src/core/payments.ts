@@ -24,7 +24,10 @@ export async function createPayment(
     itemDesc: input.itemDesc,
     returnUrl: input.returnUrl,
     notifyUrl: input.notifyUrl,
-  });
+    // ecpay-ecpg ConsumerInfo (ignored by other adapters)
+    ...(input.email ? { email: input.email } : {}),
+    ...(input.phone ? { phone: input.phone } : {}),
+  } as Parameters<typeof provider.createPayment>[0]);
 
   return {
     provider: input.provider,
