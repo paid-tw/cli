@@ -10,10 +10,15 @@
 | --- | --- |
 | Organization | `paid-tw` |
 | Repository | `cli` |
-| Workflow filename | `publish.yml` |
+| Workflow filename | `publish.yml`（workflow 名稱：Publish Package） |
 | Environment | （空白，除非有用 GitHub Environment） |
 
-不需要長期 `NPM_TOKEN`。Workflow 使用 `permissions.id-token: write` 與 `npm publish --provenance`。
+不需要長期 `NPM_TOKEN`。Workflow 依 npm 建議使用：
+
+- `permissions.id-token: write`
+- `actions/setup-node` + `registry-url: https://registry.npmjs.org`
+- `package-manager-cache: false`
+- `npm publish --access public --provenance`
 
 ## 發版步驟
 

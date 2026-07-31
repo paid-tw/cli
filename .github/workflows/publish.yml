@@ -1,46 +1,38 @@
-name: Publish
+name: Publish Package
 
-# Canonical release: push a plain `vX.Y.Z` tag whose package.json version matches.
-# Publishes via npm OIDC trusted publishing (no long-lived NPM_TOKEN).
+# Push tag vX.Y.Z (must match package.json version) → npm via OIDC trusted publishing.
 on:
   push:
     tags:
       - "v*"
 
 permissions:
-  id-token: write # Required for npm OIDC trusted publishing
+  id-token: write # Required for OIDC
   contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      # Do not set registry-url here — that injects a dummy NODE_AUTH_TOKEN which
-      # breaks tokenless OIDC trusted publishing.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: npm
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false # never use caching in release builds
 
       - run: npm ci
-      - run: npm run build
+      - run: npm run build --if-present
       - run: npm test
 
-      # npm >= 11.5.1 on Node 24: tokenless OIDC + provenance.
-      # Trusted Publisher on npmjs.com must list paid-tw/cli + publish.yml.
-      - run: npm install -g npm@latest
-      - name: Publish @paid-tw/cli (OIDC + provenance)
-        env:
-          # Ensure no leftover always-auth token from setup-node / secrets.
-          NODE_AUTH_TOKEN: ""
+      - name: Publish @paid-tw/cli
         run: |
           name=$(node -p "require('./package.json').name")
           ver=$(node -p "require('./package.json').version")
           tag="${GITHUB_REF_NAME#v}"
           if [ "$tag" != "$ver" ]; then
-            echo "::error::Tag v* ($GITHUB_REF_NAME) must match package.json version ($ver)"
+            echo "::error::Tag ($GITHUB_REF_NAME) must match package.json version ($ver)"
             exit 1
           fi
           if npm view "${name}@${ver}" version >/dev/null 2>&1; then
