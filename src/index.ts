@@ -23,7 +23,7 @@ const program = new Command();
 
 program
   .name("paid")
-  .description("paid CLI: 台灣金流整合工具（MVP: PAYUNi）")
+  .description("paid CLI: 台灣金流整合工具（PAYUNi / ECPay AIO / 站內付 2.0）")
   .version(version)
   .showHelpAfterError()
   .showSuggestionAfterError();
