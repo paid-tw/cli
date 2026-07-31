@@ -2,6 +2,8 @@
 
 ## 0.2.0
 
+> 發布方式：GitHub tag `v0.2.0` + npm OIDC（見 `docs/release.md`）。
+
 ### Minor Changes
 
 - **ECPay 站內付 2.0 (`ecpay-ecpg`)**：新增 provider，registry / doctor / config / env 支援  

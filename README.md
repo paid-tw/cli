@@ -300,9 +300,11 @@ cli/
     providers/    # 薄 re-export → @paid-tw/payment*
 ```
 
-### CI
+### CI / 發布
 
-`.github/workflows/ci.yml`：push `main` 與 PR。build（Node 22）+ test 矩陣 Node 20/22/24。
+- CI：`.github/workflows/ci.yml`（push `main` 與 PR；Node 20/22/24）
+- **npm 發布**：推送 git tag `vX.Y.Z` → `.github/workflows/publish.yml`（**OIDC**，不用本機 `npm publish`）  
+  步驟見 [`docs/release.md`](./docs/release.md)
 
 ## 文件
 

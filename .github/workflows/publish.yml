@@ -1,0 +1,45 @@
+name: Publish
+
+# Canonical release: push a plain `vX.Y.Z` tag whose package.json version matches.
+# Publishes via npm OIDC trusted publishing (no long-lived NPM_TOKEN).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write # Required for npm OIDC trusted publishing
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+      # npm >= 11.5.1 on Node 24: tokenless OIDC + provenance.
+      # Trusted Publisher on npmjs.com must list this repo + publish.yml.
+      - run: npm install -g npm@latest
+      - name: Publish @paid-tw/cli (OIDC + provenance)
+        run: |
+          name=$(node -p "require('./package.json').name")
+          ver=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::Tag v* ($GITHUB_REF_NAME) must match package.json version ($ver)"
+            exit 1
+          fi
+          if npm view "${name}@${ver}" version >/dev/null 2>&1; then
+            echo "::notice::${name}@${ver} already published — skipping"
+            exit 0
+          fi
+          npm publish --access public --provenance
