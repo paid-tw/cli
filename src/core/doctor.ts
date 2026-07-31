@@ -41,13 +41,11 @@ export async function runDoctor(
       missing.push(key);
       continue;
     }
+    // Prefer primary key for source label; fall back key still counts as set.
     const resolvedKey = primary ? key : `${fallbackPrefix}_${suffix}`;
     sources[key] = process.env.__PAID_DOTENV?.split(",").includes(resolvedKey ?? "")
       ? "dotenv"
       : "env";
-    if (!primary && fallback) {
-      sources[key] = sources[key]; // still "set" via ECPAY_* fallback
-    }
   }
 
   const hasConfig = Boolean(cfg.providers?.[provider]);
