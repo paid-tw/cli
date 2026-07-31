@@ -19,7 +19,8 @@ export async function runDoctor(
 ): Promise<DoctorResult> {
   const provider = (await resolveProviderName(providerInput)) as ProviderName;
   // ecpay-ecpg: show ECPAY_ECPG_* but accept fallback ECPAY_* as present.
-  const primaryPrefix = provider === "ecpay-ecpg" ? "ECPAY_ECPG" : provider.toUpperCase().replace(/-/g, "_");
+  const primaryPrefix =
+    provider === "ecpay-ecpg" ? "ECPAY_ECPG" : provider.toUpperCase().replace(/-/g, "_");
   const fallbackPrefix = provider === "ecpay-ecpg" ? "ECPAY" : undefined;
 
   const required = [
