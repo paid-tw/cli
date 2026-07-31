@@ -306,5 +306,5 @@ cli/
 
 ## 文件
 
-- 本 CLI：本 README、`docs/payuni/trade-query.md`
+- 本 CLI：本 README、[`CHANGELOG.md`](./CHANGELOG.md)、`docs/payuni/trade-query.md`
 - 金流 SDK：https://github.com/paid-tw/payment
