@@ -1,7 +1,14 @@
 {
   "name": "@paid-tw/cli",
   "version": "0.2.0",
+  "description": "CLI for Taiwan payment gateways (PAYUNi, NewebPay, ECPay AIO / 站內付 2.0).",
+  "homepage": "https://github.com/paid-tw/cli#readme",
+  "bugs": "https://github.com/paid-tw/cli/issues",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paid-tw/cli.git"
+  },
   "private": false,
   "type": "module",
   "bin": {
