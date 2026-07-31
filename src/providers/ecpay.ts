@@ -4,7 +4,9 @@ export {
   createEcpayEcpgProvider,
   computeCheckMacValue,
   verifyPaymentNotify,
+  verifyEcpgPaymentNotify,
   ECPAY_NOTIFY_ACK,
+  ECPG_NOTIFY_ACK,
   ECPAY_SANDBOX,
   ECPAY_SANDBOX_PORTAL,
   ECPAY_ORIGINS,
@@ -14,4 +16,5 @@ export {
   type EcpayCheckoutForm,
   type EcpayRefundResult,
   type EcpayPaymentNotify,
+  type EcpgPaymentNotify,
 } from "@paid-tw/payment-ecpay";
