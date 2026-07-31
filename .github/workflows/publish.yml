@@ -17,19 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Do not set registry-url here — that injects a dummy NODE_AUTH_TOKEN which
+      # breaks tokenless OIDC trusted publishing.
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          cache: npm
 
       - run: npm ci
       - run: npm run build
       - run: npm test
 
       # npm >= 11.5.1 on Node 24: tokenless OIDC + provenance.
-      # Trusted Publisher on npmjs.com must list this repo + publish.yml.
+      # Trusted Publisher on npmjs.com must list paid-tw/cli + publish.yml.
       - run: npm install -g npm@latest
       - name: Publish @paid-tw/cli (OIDC + provenance)
+        env:
+          # Ensure no leftover always-auth token from setup-node / secrets.
+          NODE_AUTH_TOKEN: ""
         run: |
           name=$(node -p "require('./package.json').name")
           ver=$(node -p "require('./package.json').version")
