@@ -1,5 +1,11 @@
 # paid CLI
 
+[![CI](https://github.com/paid-tw/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/paid-tw/cli/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@paid-tw/cli.svg?label=%40paid-tw%2Fcli)](https://www.npmjs.com/package/@paid-tw/cli)
+[![types: TypeScript](https://img.shields.io/npm/types/@paid-tw/cli.svg)](https://www.typescriptlang.org/)
+[![license: MIT](https://img.shields.io/github/license/paid-tw/cli.svg)](./LICENSE)
+[![npx](https://img.shields.io/badge/npx-%40paid--tw%2Fcli-black)](https://www.npmjs.com/package/@paid-tw/cli)
+
 以優質 DX 為目標，提供台灣金流的統一操作介面。
 
 ## 目標
