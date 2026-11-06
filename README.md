@@ -35,7 +35,7 @@ npx @paid-tw/cli --help
 | `payuni` | 開發中 | ✅ | 開發中 | 統一金流 trade query |
 | `ecpay` | ✅ AioCheckOut **redirect** | ✅ QueryTradeInfo | ✅ DoAction（信用卡） | 導轉綠界收銀台；`raw.mode === "redirect"` |
 | `ecpay-ecpg` | ✅ GetToken **token** | 開發中 | 開發中 | 站內付 2.0；`raw.mode === "token"`（給前端 JS） |
-| `newebpay` | 開發中 | 開發中 | 開發中 | 藍新 scaffold |
+| `newebpay` | ✅ MPG **redirect** | ✅ QueryTradeInfo（需 `--amount`） | ✅ CreditCard/Close | 導轉藍新 MPG；`raw.mode === "redirect"` |
 
 各 provider 以 `capabilities` 宣告能力；未支援的操作回傳 `UNSUPPORTED`。
 
@@ -98,11 +98,28 @@ npx @paid-tw/cli payments create --provider=ecpay-ecpg --amount=100 --method=car
 
 > 前端需載入綠界站內付 2.0 JS：`createPayment(token)` → `getPayToken()`，再由伺服器呼叫 SDK 的 `createPaymentWithPayToken`。CLI 只負責 server 端 GetToken。
 
-### NewebPay 藍新金流（開發中）
+### NewebPay 藍新金流
 
 ```bash
-# 即將推出
+export NEWEBPAY_MERCHANT_ID=your_merchant_id
+export NEWEBPAY_HASH_KEY=your_hash_key
+export NEWEBPAY_HASH_IV=your_hash_iv
+
+# create → raw.mode=redirect（MPG 導轉表單，非已付款）
+# ReturnURL 與 NotifyURL 不可同網址（官方禁止，會重複入帳）
+npx @paid-tw/cli payments create --provider=newebpay --amount=100 --method=card \
+  --order-id=ORDER123 --item-desc="T-shirt" \
+  --notify-url=https://example.com/newebpay/notify \
+  --return-url=https://example.com/newebpay/return --sandbox
+
+# get 必帶 --amount：QueryTradeInfo 的 CheckValue 以 Amt 簽章，查詢 API 不支援 TradeNo 查詢
+npx @paid-tw/cli payments get --provider=newebpay --id=ORDER123 --amount=100 --sandbox
+
+# refund 必帶 --amount（分期/紅利交易須全額）
+npx @paid-tw/cli payments refund --provider=newebpay --id=ORDER123 --amount=100 --sandbox
 ```
+
+> `--order-id`（MerchantOrderNo）須為 1–30 碼英數字或底線；測試環境（ccore）要用測試平台商店的金鑰，正式金鑰打 ccore 必敗（反之亦然）。
 
 ## 指令概覽
 
@@ -110,9 +127,9 @@ npx @paid-tw/cli payments create --provider=ecpay-ecpg --amount=100 --method=car
 paid doctor --provider=payuni|ecpay|ecpay-ecpg|newebpay
 paid providers list
 paid providers ping --provider=payuni --id=...
-paid payments create --provider=ecpay|ecpay-ecpg ...
-paid payments get --provider=payuni|ecpay --id=...
-paid payments refund --provider=ecpay --id=... --amount=...
+paid payments create --provider=ecpay|ecpay-ecpg|newebpay ...
+paid payments get --provider=payuni|ecpay|newebpay --id=...   # newebpay 另需 --amount
+paid payments refund --provider=ecpay|newebpay --id=... --amount=...
 paid config set --provider=ecpay --merchant-id=... --hash-key=... --hash-iv=...
 paid config get --provider=ecpay
 paid tw auth login|status   # 選用，僅 paid.tw 功能需要

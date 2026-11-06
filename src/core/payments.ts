@@ -44,7 +44,12 @@ export async function getPayment(
   const cfg = await resolveProviderConfig(input.provider, undefined, runtime);
   const provider = createProvider(input.provider, cfg);
 
-  const data = await provider.getPayment({ merTradeNo: input.id, tradeNo: input.tradeNo });
+  const data = await provider.getPayment({
+    merTradeNo: input.id,
+    tradeNo: input.tradeNo,
+    // newebpay QueryTradeInfo signs Amt in CheckValue (ignored by other adapters)
+    ...(input.amount !== undefined ? { amount: input.amount } : {}),
+  } as Parameters<typeof provider.getPayment>[0]);
 
   return {
     provider: input.provider,

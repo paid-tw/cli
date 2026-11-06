@@ -20,6 +20,8 @@ export interface GetPaymentInput {
   provider: ProviderName;
   id?: string;
   tradeNo?: string;
+  /** Required by newebpay — QueryTradeInfo's CheckValue signs Amt. */
+  amount?: number;
 }
 
 export interface RefundPaymentInput {
