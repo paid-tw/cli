@@ -68,6 +68,7 @@ export function registerPaymentsCommands(program: Command) {
     .option("--provider <provider>", "支付服務 (payuni/newebpay/ecpay/ecpay-ecpg)")
     .option("--id <id>", "交易 ID（MerTradeNo）")
     .option("--trade-no <tradeNo>", "UNi 序號（TradeNo）")
+    .option("--amount <amount>", "訂單金額（newebpay 必填 — QueryTradeInfo 的 CheckValue 以 Amt 簽章）")
     .option("--format <format>", "輸出格式 (json/pretty)")
     .option("--json", "JSON 格式輸出（等同 --format=json）")
     .option("--sandbox", "使用測試環境（覆蓋設定）")
@@ -87,6 +88,7 @@ export function registerPaymentsCommands(program: Command) {
             provider: provider as ProviderName,
             id: opts.id,
             tradeNo: opts.tradeNo,
+            amount: opts.amount ? Number(opts.amount) : undefined,
           },
           runtime,
         );
@@ -161,7 +163,7 @@ export function registerPaymentsCommands(program: Command) {
 
   payments.addHelpText(
     "after",
-    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=ecpay-ecpg --amount=100 --method=card --order-id=ORDER123 \\\n    --notify-url=https://example.com/notify --email=buyer@example.com --sandbox\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments refund --provider=ecpay --id=ORDER123 --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider: payuni | newebpay | ecpay (AIO 導轉) | ecpay-ecpg (站內付 2.0 Token)\n  ecpay-ecpg create 回傳 mode:token（給前端 JS），需 --email 或 --phone\n  ecpay-ecpg 憑證: ECPAY_ECPG_* 或共用 ECPAY_*\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  --format: json | pretty\n`,
+    `\nExamples:\n  paid payments create --provider=payuni --amount=100 --currency=TWD --method=card --order-id=ORDER123 \\\n    --item-desc="T-shirt" --return-url=https://example.com/return --notify-url=https://example.com/notify\n\n  paid payments create --provider=ecpay-ecpg --amount=100 --method=card --order-id=ORDER123 \\\n    --notify-url=https://example.com/notify --email=buyer@example.com --sandbox\n\n  paid payments get --provider=payuni --id=Ax234234jisdi\n\n  paid payments create --provider=newebpay --amount=100 --method=card --order-id=ORDER123 \\\n    --notify-url=https://example.com/notify --return-url=https://example.com/return --sandbox\n\n  paid payments get --provider=newebpay --id=ORDER123 --amount=100\n\n  paid payments refund --provider=ecpay --id=ORDER123 --amount=100\n\nNotes:\n  --method: card | linepay | atm | cvs\n  --amount 需為數字\n  provider: payuni | newebpay | ecpay (AIO 導轉) | ecpay-ecpg (站內付 2.0 Token)\n  ecpay-ecpg create 回傳 mode:token（給前端 JS），需 --email 或 --phone\n  ecpay-ecpg 憑證: ECPAY_ECPG_* 或共用 ECPAY_*\n  newebpay get 需帶 --amount（QueryTradeInfo 的 CheckValue 以 Amt 簽章）；\n  newebpay create 回傳 mode:redirect，ReturnURL 與 NotifyURL 不可同網址；refund 需 --amount\n  provider 預設順序: --provider > PAID_DEFAULT_PROVIDER > config.toml > 單一 providers 自動選擇\n  環境覆蓋: --sandbox / --production / PAID_ENV\n  --format: json | pretty\n`,
   );
 }
 
